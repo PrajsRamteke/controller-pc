@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "PAD//LINK Virtual Gamepad",
+  "version": "1.0.0",
+  "description": "Makes your phone (running PAD//LINK) show up as a real controller on this page via the Gamepad API. Works with hardwaretester.com/gamepad and browser cloud gaming.",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["gamepad.js"],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": true
+    }
+  ]
+}

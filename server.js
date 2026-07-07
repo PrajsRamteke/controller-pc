@@ -73,6 +73,22 @@ const sticks = {
   },
 };
 
+const touchpad = {
+  sensitivity: mapping.touchpad?.sensitivity ?? 2.4,
+  scrollSensitivity: mapping.touchpad?.scrollSensitivity ?? 0.15,
+  naturalScroll: mapping.touchpad?.naturalScroll ?? true,
+  dx: 0, dy: 0, scrollAcc: 0,
+};
+
+// ---- virtual gamepad state (mirrored to browser-extension tabs) --------------
+// Standard Gamepad API button indices: https://w3c.github.io/gamepad/#remapping
+const GP_INDEX = {
+  A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7,
+  VIEW: 8, MENU: 9, L3: 10, R3: 11,
+  DPAD_UP: 12, DPAD_DOWN: 13, DPAD_LEFT: 14, DPAD_RIGHT: 15,
+};
+const gpState = { axes: [0, 0, 0, 0], buttons: new Array(17).fill(0) };
+
 // ---- input actions ----------------------------------------------------------
 const pressedButtons = new Set();
 
@@ -113,21 +129,33 @@ async function updateStickKeys(stick) {
   await setDirKey(stick, "up", y < -deadzone);
 }
 
-// mouse-look loop (~60Hz) — applies right stick velocity while deflected
+// mouse loop (~60Hz) — applies right-stick velocity and touchpad deltas
 let mouseLoopRunning = false;
 async function mouseLoop() {
   if (mouseLoopRunning) return;
   mouseLoopRunning = true;
   while (mouseLoopRunning) {
+    let mx = 0, my = 0;
+
     const s = sticks.R;
     const mag = Math.hypot(s.x, s.y);
-    if (s.mode === "mouse" && mag > s.deadzone) {
+    if (!gamepadMode() && s.mode === "mouse" && mag > s.deadzone) {
+      const scale = ((mag - s.deadzone) / (1 - s.deadzone)) * s.sensitivity;
+      mx += (s.x / (mag || 1)) * scale;
+      my += (s.y / (mag || 1)) * scale;
+    }
+
+    if (touchpad.dx || touchpad.dy) {
+      mx += touchpad.dx;
+      my += touchpad.dy;
+      touchpad.dx = 0;
+      touchpad.dy = 0;
+    }
+
+    if (mx || my) {
       try {
         const pos = await mouse.getPosition();
-        const scale = ((mag - s.deadzone) / (1 - s.deadzone)) * s.sensitivity;
-        const nx = pos.x + (s.x / (mag || 1)) * scale;
-        const ny = pos.y + (s.y / (mag || 1)) * scale;
-        await mouse.setPosition(new Point(Math.round(nx), Math.round(ny)));
+        await mouse.setPosition(new Point(Math.round(pos.x + mx), Math.round(pos.y + my)));
       } catch (e) { /* ignore transient errors */ }
     }
     await new Promise((r) => setTimeout(r, 16));
@@ -140,36 +168,107 @@ async function releaseEverything() {
     s.x = 0; s.y = 0;
     await updateStickKeys(s);
   }
+  touchpad.dx = 0; touchpad.dy = 0; touchpad.scrollAcc = 0;
 }
 
 // ---- server -----------------------------------------------------------------
 const app = express();
 app.use(express.static(path.join(__dirname, "public")));
+// controller UI reads this to show which key each button fires
+app.get("/mapping.json", (req, res) => res.sendFile(path.join(__dirname, "mapping.json")));
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
-let clients = 0;
+const phones = new Set();     // phone controller UIs
+const consumers = new Set();  // browser tabs running the PAD//LINK extension
+
+function gamepadMode() { return consumers.size > 0; }
+function sendTo(set, obj) {
+  const msg = JSON.stringify(obj);
+  for (const c of set) if (c.readyState === 1) c.send(msg);
+}
+const broadcastState = () => sendTo(consumers, { t: "state", a: gpState.axes, b: gpState.buttons });
+const broadcastMode = () => sendTo(phones, { t: "mode", g: gamepadMode() });
 
 wss.on("connection", (ws, req) => {
-  clients++;
+  // browser extension attaching as a virtual gamepad consumer
+  if ((req.url || "").includes("role=consumer")) {
+    consumers.add(ws);
+    console.log(`🕹  Virtual gamepad attached (${consumers.size} tab(s)) — keyboard/mouse mapping paused`);
+    releaseEverything().catch(() => {});   // hand off cleanly: no held keys in gamepad mode
+    broadcastMode();
+    if (phones.size > 0) broadcastState();
+
+    ws.on("message", (raw) => {
+      let msg; try { msg = JSON.parse(raw); } catch { return; }
+      if (msg.t === "rumble") sendTo(phones, { t: "rumble", d: msg.d, m: msg.m }); // game rumble → phone vibration
+    });
+    ws.on("close", () => {
+      consumers.delete(ws);
+      broadcastMode();
+      if (consumers.size === 0) console.log("🕹  Virtual gamepad detached — keyboard/mouse mapping resumed");
+    });
+    return;
+  }
+
+  phones.add(ws);
   const ip = req.socket.remoteAddress;
-  console.log(`🎮 Controller connected from ${ip} (${clients} active)`);
+  console.log(`🎮 Controller connected from ${ip} (${phones.size} active)`);
   mouseLoop();
+  ws.send(JSON.stringify({ t: "mode", g: gamepadMode() }));
+  if (gamepadMode()) broadcastState();
 
   ws.on("message", async (raw) => {
     let msg;
     try { msg = JSON.parse(raw); } catch { return; }
 
     switch (msg.t) {
-      case "b": // button: { t:"b", k:"A", v:1|0 }
-        await setButton(msg.k, msg.v === 1);
+      case "b": { // button: { t:"b", k:"A", v:1|0 }
+        const idx = GP_INDEX[msg.k];
+        if (idx !== undefined) {
+          gpState.buttons[idx] = msg.v === 1 ? 1 : 0;
+          if (gamepadMode()) broadcastState();
+        }
+        if (!gamepadMode()) await setButton(msg.k, msg.v === 1);
         break;
+      }
       case "s": { // stick: { t:"s", s:"L"|"R", x:-1..1, y:-1..1 }
         const stick = sticks[msg.s];
         if (!stick) return;
         stick.x = Math.max(-1, Math.min(1, +msg.x || 0));
         stick.y = Math.max(-1, Math.min(1, +msg.y || 0));
-        if (stick.mode === "keys") await updateStickKeys(stick);
+        const o = msg.s === "L" ? 0 : 2;
+        gpState.axes[o] = stick.x;
+        gpState.axes[o + 1] = stick.y;
+        if (gamepadMode()) broadcastState();
+        else if (stick.mode === "keys") await updateStickKeys(stick);
+        break;
+      }
+      case "m": // touchpad move: { t:"m", x:dx, y:dy } in screen px from phone
+        touchpad.dx += (+msg.x || 0) * touchpad.sensitivity;
+        touchpad.dy += (+msg.y || 0) * touchpad.sensitivity;
+        break;
+      case "c": // touchpad tap: { t:"c", b:"left"|"right" }
+        try {
+          if (msg.b === "right") await mouse.rightClick();
+          else await mouse.leftClick();
+        } catch (e) {
+          console.error("click error:", e.message);
+        }
+        break;
+      case "w": { // touchpad two-finger scroll: { t:"w", y:dy }
+        const dir = touchpad.naturalScroll ? -1 : 1;
+        touchpad.scrollAcc += (+msg.y || 0) * touchpad.scrollSensitivity * dir;
+        const steps = Math.trunc(touchpad.scrollAcc);
+        if (steps !== 0) {
+          touchpad.scrollAcc -= steps;
+          try {
+            if (steps > 0) await mouse.scrollDown(steps);
+            else await mouse.scrollUp(-steps);
+          } catch (e) {
+            console.error("scroll error:", e.message);
+          }
+        }
         break;
       }
       case "ping":
@@ -179,11 +278,14 @@ wss.on("connection", (ws, req) => {
   });
 
   ws.on("close", async () => {
-    clients--;
-    console.log(`🔌 Controller disconnected (${clients} active)`);
-    if (clients === 0) {
+    phones.delete(ws);
+    console.log(`🔌 Controller disconnected (${phones.size} active)`);
+    if (phones.size === 0) {
       await releaseEverything(); // never leave keys stuck down
       mouseLoopRunning = false;
+      gpState.axes = [0, 0, 0, 0];
+      gpState.buttons.fill(0);
+      sendTo(consumers, { t: "off" }); // extension reports pad disconnected
     }
   });
 });

@@ -39,5 +39,12 @@
     "left": "Left",
     "right": "Right",
     "deadzone": 0.25
+  },
+
+  "touchpad": {
+    "_comment": "PS5-style touchpad: drag moves the mouse, tap = left click, two-finger tap = right click, two-finger drag = scroll",
+    "sensitivity": 2.4,
+    "scrollSensitivity": 0.15,
+    "naturalScroll": true
   }
 }
