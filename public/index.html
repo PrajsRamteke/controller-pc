@@ -223,7 +223,12 @@
     box-shadow:0 0 12px rgba(var(--link-rgb),.35);
     transform:translate(-50%,-50%);display:none;
   }
-  #lookpad.touching .anchor, #lookpad.touching .dot{display:block}
+  #lookpad.touching .dot{display:block}
+  #lookpad.touching.stickstyle .anchor{display:block}
+  #lookpad.glide{
+    border-color:var(--amber);
+    box-shadow:0 0 20px rgba(255,176,32,.45), inset 0 2px 10px rgba(0,0,0,.5);
+  }
   .ripple{
     position:absolute;width:44px;height:44px;border-radius:50%;pointer-events:none;
     border:2px solid rgba(var(--link-rgb),.8);
@@ -488,8 +493,24 @@
       <input type="range" id="gyroSens" min="0.3" max="3" step="0.1" value="1">
     </div>
     <div class="row">
-      <span>Lock Mouse<span class="hint">Big analog look pad — touch anywhere, hold to keep turning</span></span>
+      <span>Lock Mouse<span class="hint">Look pad replaces the right stick — much easier camera aim</span></span>
       <label class="switch"><input type="checkbox" id="lockToggle"><span class="knob"></span></label>
+    </div>
+    <div class="row">
+      <span>Look pad style<span class="hint">Swipe = drag to aim · edge glide keeps turning at the rim</span></span>
+      <select id="lookModeSel">
+        <option value="hybrid" selected>Swipe + edge glide</option>
+        <option value="swipe">Swipe only</option>
+        <option value="stick">Floating stick</option>
+      </select>
+    </div>
+    <div class="row">
+      <span>Look sensitivity<span class="hint">Swipe speed on the look pad</span></span>
+      <input type="range" id="lookSensR" min="0.4" max="3" step="0.1" value="1">
+    </div>
+    <div class="row">
+      <span>Stick response<span class="hint">Right stick — higher = finer aim near center</span></span>
+      <input type="range" id="stickCurveR" min="1" max="2.5" step="0.1" value="1.5">
     </div>
 
     <div class="row">
@@ -541,7 +562,8 @@
   // ============ persistent settings ============
   const CFG_KEY = "padlink-settings-v1";
   const CFG = Object.assign(
-    { vib: localStorage.getItem("padlink-vib") !== "0", sounds: false, haptic: "medium", gyro: false, gyroSens: 1, lockMouse: false },
+    { vib: localStorage.getItem("padlink-vib") !== "0", sounds: false, haptic: "medium", gyro: false, gyroSens: 1,
+      lockMouse: false, lookMode: "hybrid", lookSens: 1, stickCurve: 1.5 },
     JSON.parse(localStorage.getItem(CFG_KEY) || "{}")
   );
   const saveCfg = () => localStorage.setItem(CFG_KEY, JSON.stringify(CFG));
@@ -919,6 +941,16 @@
   }
 
   // ============ analog sticks ============
+  // expo response curve for camera aim: output = magnitude^curve keeps the
+  // middle of the stick fine-grained (glass can't hold tiny offsets) while
+  // full deflection still hits full speed. curve 1 = linear/off.
+  const curveVec = (x, y) => {
+    const m = Math.hypot(x, y);
+    if (!m) return [0, 0];
+    const c = Math.pow(Math.min(1, m), CFG.stickCurve) / m;
+    return [x * c, y * c];
+  };
+
   function makeStick(el, id) {
     const thumb = el.querySelector(".thumb");
     const ring = el.querySelector(".ring");
@@ -936,9 +968,12 @@
       const mag = Math.hypot(x, y);
       ring.style.setProperty("--glow", Math.min(1, mag).toFixed(2));
       ring.style.setProperty("--ang", (Math.atan2(y, x) * 180 / Math.PI + 60) + "deg");
+      // the right stick aims a camera — send it through the response curve
+      // (thumb visual stays linear; left stick is digital keys, keep it raw)
+      const [sx, sy] = id === "R" ? curveVec(x, y) : [x, y];
       const now = performance.now();
-      if (now - lastSent > NET.stickMs || (x === 0 && y === 0)) {
-        if (x !== lx || y !== ly) { send({ t: "s", s: id, x: +x.toFixed(3), y: +y.toFixed(3) }); lx = x; ly = y; }
+      if (now - lastSent > NET.stickMs || (sx === 0 && sy === 0)) {
+        if (sx !== lx || sy !== ly) { send({ t: "s", s: id, x: +sx.toFixed(3), y: +sy.toFixed(3) }); lx = sx; ly = sy; }
         lastSent = now;
       }
     };
@@ -979,15 +1014,30 @@
   makeStick($("stickL"), "L");
   makeStick($("stickR"), "R");
 
-  // ============ Lock Mouse: analog look pad (replaces right stick) ============
-  // Floating analog stick: wherever the finger lands becomes center. Holding an
-  // offset from that point keeps the view moving — no repeated swiping needed.
+  // ============ Lock Mouse: look pad (replaces right stick) ============
+  // Three styles (settings → "Look pad style"):
+  //  swipe  — finger deltas become camera deltas 1:1, like a laptop touchpad.
+  //           Precise, because your finger directly draws the camera motion.
+  //  hybrid — swipe, plus "edge glide": park the finger in the outer ring and
+  //           the camera keeps turning — no lift-and-reswipe for big turns.
+  //  stick  — the old floating analog stick (hold an offset to keep turning).
+  let updateLookLbl = () => {};
   {
     const lp = $("lookpad");
     const anchor = lp.querySelector(".anchor");
     const dot = lp.querySelector(".dot");
+    const lbl = lp.querySelector(".lbl");
     let pid = null, ox = 0, oy = 0, radius = 1, rect = null;
     let lastSent = 0, lx = 0, ly = 0;
+    let px = 0, py = 0, accX = 0, accY = 0, rafQ = false, gliding = false;
+
+    const LBL = {
+      stick: "Look · hold like a stick",
+      swipe: "Look · swipe to aim",
+      hybrid: "Look · swipe · hold the rim to keep turning",
+    };
+    updateLookLbl = () => { lbl.textContent = LBL[CFG.lookMode] || LBL.hybrid; };
+    updateLookLbl();
 
     const sendStick = (x, y) => {
       const now = performance.now();
@@ -996,7 +1046,23 @@
         lastSent = now;
       }
     };
-    const place = (el, x, y) => { el.style.left = (x - rect.left) + "px"; el.style.top = (y - rect.top) + "px"; };
+    const flushLook = () => {
+      rafQ = false;
+      if (accX || accY) {
+        send({ t: "look", x: +(accX * CFG.lookSens).toFixed(1), y: +(accY * CFG.lookSens).toFixed(1) });
+        accX = 0; accY = 0;
+      }
+    };
+    const place = (el, x, y) => {
+      el.style.left = Math.max(0, Math.min(rect.width, x - rect.left)) + "px";
+      el.style.top = Math.max(0, Math.min(rect.height, y - rect.top)) + "px";
+    };
+    const stopGlide = () => {
+      if (!gliding) return;
+      gliding = false;
+      lp.classList.remove("glide");
+      sendStick(0, 0);
+    };
 
     lp.addEventListener("pointerdown", (e) => {
       if (EDIT.on) return;
@@ -1005,27 +1071,59 @@
       pid = e.pointerId;
       lp.setPointerCapture(pid);
       rect = lp.getBoundingClientRect();
-      radius = rect.width * 0.35; // full look speed ~1/3 of the pad from the touch point
-      ox = e.clientX; oy = e.clientY;
-      place(anchor, ox, oy);
-      place(dot, ox, oy);
+      lp.classList.toggle("stickstyle", CFG.lookMode === "stick");
+      px = e.clientX; py = e.clientY;
+      if (CFG.lookMode === "stick") {
+        radius = rect.width * 0.35; // full look speed ~1/3 of the pad from the touch point
+        ox = e.clientX; oy = e.clientY;
+        place(anchor, ox, oy);
+      }
+      place(dot, e.clientX, e.clientY);
       lp.classList.add("touching");
       fx("stick");
     });
+
     lp.addEventListener("pointermove", (e) => {
       if (e.pointerId !== pid) return;
-      let dx = (e.clientX - ox) / radius;
-      let dy = (e.clientY - oy) / radius;
-      const mag = Math.hypot(dx, dy);
-      if (mag > 1) { dx /= mag; dy /= mag; }
-      place(dot, ox + dx * radius, oy + dy * radius);
-      sendStick(dx, dy);
+      if (CFG.lookMode === "stick") {
+        let dx = (e.clientX - ox) / radius;
+        let dy = (e.clientY - oy) / radius;
+        const mag = Math.hypot(dx, dy);
+        if (mag > 1) { dx /= mag; dy /= mag; }
+        place(dot, ox + dx * radius, oy + dy * radius);
+        const [sx, sy] = curveVec(dx, dy);
+        sendStick(sx, sy);
+        return;
+      }
+      // swipe / hybrid — relative finger deltas
+      const dx = e.clientX - px, dy = e.clientY - py;
+      px = e.clientX; py = e.clientY;
+      place(dot, e.clientX, e.clientY);
+      if (CFG.lookMode === "hybrid") {
+        const half = Math.min(rect.width, rect.height) / 2;
+        const nx = (e.clientX - (rect.left + rect.width / 2)) / half;
+        const ny = (e.clientY - (rect.top + rect.height / 2)) / half;
+        const r = Math.hypot(nx, ny);
+        if (gliding ? r > 0.72 : r > 0.8) { // hysteresis so the rim doesn't flicker
+          if (!gliding) { gliding = true; lp.classList.add("glide"); buzz(8); }
+          // 40% turn speed at the ring, full speed with the finger past the pad edge
+          const speed = 0.4 + Math.min(1, Math.max(0, (r - 0.8) / 0.35)) * 0.6;
+          sendStick((nx / r) * speed, (ny / r) * speed);
+          return; // rim turn replaces swipe deltas
+        }
+        stopGlide();
+      }
+      accX += dx; accY += dy;
+      if (!rafQ) { rafQ = true; requestAnimationFrame(flushLook); }
     });
+
     const end = (e) => {
       if (e.pointerId !== pid) return;
       pid = null;
       lp.classList.remove("touching");
+      stopGlide();
       sendStick(0, 0);
+      flushLook();
     };
     lp.addEventListener("pointerup", end);
     lp.addEventListener("pointercancel", end);
@@ -1116,20 +1214,33 @@
   const settingsEl = $("settings");
   const vibToggle = $("vibToggle"), sndToggle = $("sndToggle"), hapticSel = $("hapticSel");
   const gyroToggle = $("gyroToggle"), gyroSens = $("gyroSens"), lockToggle = $("lockToggle");
+  const lookModeSel = $("lookModeSel"), lookSensR = $("lookSensR"), stickCurveR = $("stickCurveR");
   vibToggle.checked = CFG.vib;
   sndToggle.checked = CFG.sounds;
   hapticSel.value = CFG.haptic;
   gyroToggle.checked = CFG.gyro;
   gyroSens.value = CFG.gyroSens;
   lockToggle.checked = CFG.lockMouse;
+  lookModeSel.value = CFG.lookMode;
+  lookSensR.value = CFG.lookSens;
+  stickCurveR.value = CFG.stickCurve;
   document.body.classList.toggle("lockmouse", CFG.lockMouse);
+
+  lookModeSel.addEventListener("change", () => {
+    CFG.lookMode = lookModeSel.value;
+    saveCfg();
+    updateLookLbl();
+    send({ t: "s", s: "R", x: 0, y: 0 }); // style switch mid-hold must not strand a turn
+  });
+  lookSensR.addEventListener("input", () => { CFG.lookSens = +lookSensR.value; saveCfg(); });
+  stickCurveR.addEventListener("input", () => { CFG.stickCurve = +stickCurveR.value; saveCfg(); });
 
   lockToggle.addEventListener("change", () => {
     CFG.lockMouse = lockToggle.checked;
     saveCfg();
     document.body.classList.toggle("lockmouse", CFG.lockMouse);
     send({ t: "s", s: "R", x: 0, y: 0 }); // never leave the swapped-out stick deflected
-    toast(CFG.lockMouse ? "Lock Mouse on — touch the pad and hold to keep looking" : "Right stick restored", 2200);
+    toast(CFG.lockMouse ? "Lock Mouse on — swipe the pad to aim, hold the rim to keep turning" : "Right stick restored", 2600);
   });
 
   vibToggle.addEventListener("change", () => { CFG.vib = vibToggle.checked; saveCfg(); buzz(25); });

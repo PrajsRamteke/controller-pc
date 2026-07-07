@@ -48,6 +48,11 @@
     "naturalScroll": true
   },
 
+  "lookpad": {
+    "_comment": "Lock Mouse look pad: swipe-to-look camera deltas (finger px -> mouse px). The phone's 'Look sensitivity' slider multiplies this.",
+    "sensitivity": 3.5
+  },
+
   "gyro": {
     "_comment": "Gyro aiming (toggle on the phone in settings). Accumulated tilt degrees -> mouse pixels",
     "sensitivity": 3

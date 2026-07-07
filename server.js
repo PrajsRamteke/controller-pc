@@ -89,6 +89,7 @@ const touchpad = {
 };
 
 const gyroSensitivity = mapping.gyro?.sensitivity ?? 3;
+const lookSensitivity = mapping.lookpad?.sensitivity ?? 3.5;
 
 // ---- players (up to 4 phones) & virtual gamepad state ------------------------
 // Standard Gamepad API button indices: https://w3c.github.io/gamepad/#remapping
@@ -316,6 +317,11 @@ wss.on("connection", (ws, req) => {
         if (!isP1()) return;
         touchpad.dx += (+msg.x || 0) * touchpad.sensitivity;
         touchpad.dy += (+msg.y || 0) * touchpad.sensitivity;
+        break;
+      case "look": // look pad swipe: { t:"look", x:dx, y:dy } — camera deltas, own sensitivity
+        if (!isP1()) return;
+        touchpad.dx += (+msg.x || 0) * lookSensitivity;
+        touchpad.dy += (+msg.y || 0) * lookSensitivity;
         break;
       case "g": // gyro aim: { t:"g", x:degX, y:degY } accumulated rotation
         if (!isP1()) return;

@@ -77,6 +77,16 @@ RT as a fire button: most shooters fire on mouse click — nut-js supports
 - **Local multiplayer** — up to 4 phones connect at once (P1–P4, each with its
   own accent color). The extension exposes them as gamepads 0–3. P1's phone
   drives keyboard/mouse mode and owns the shared touchpad/mouse.
+- **Lock Mouse look pad** — a touch stick is a poor camera control, so the
+  look pad replaces the right stick with **swipe-to-look** (drag = camera,
+  1:1 like a touchpad) plus **edge glide**: park your finger at the rim and
+  the camera keeps turning — no lift-and-reswipe. Style (swipe / hybrid /
+  classic floating stick) and look sensitivity are on the phone in ⚙
+  settings; base multiplier in `mapping.json` → `lookpad.sensitivity`.
+- **Stick response curve** — the right stick sends `magnitude^curve` (expo),
+  so the middle of the stick is fine-grained for aiming while full deflection
+  keeps full speed. Tune it with the "Stick response" slider (1 = linear).
+  Applies in gamepad (extension) mode too.
 - **Gyro aiming** — toggle in ⚙ settings; tilt the phone to move the camera
   (sent as mouse movement). Sensitivity slider on the phone, base multiplier
   in `mapping.json` → `gyro.sensitivity`. iOS asks for motion permission.
