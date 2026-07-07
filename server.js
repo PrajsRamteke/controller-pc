@@ -1,7 +1,8 @@
 /**
  * PHONE GAMEPAD — Mac server
  * Serves the controller UI to your phone and translates touch input
- * into keyboard / mouse events on macOS.
+ * into keyboard / mouse events on macOS. Up to 4 phones can connect
+ * (players 1-4); the browser extension exposes them as real gamepads.
  *
  * Run:  npm install && npm start
  * Then scan the QR code with your phone (same WiFi).
@@ -18,6 +19,7 @@ const path = require("path");
 const fs = require("fs");
 const { WebSocketServer } = require("ws");
 const qrcode = require("qrcode-terminal");
+const QRCode = require("qrcode");
 const { keyboard, mouse, Point, Key } = require("@nut-tree-fork/nut-js");
 
 keyboard.config.autoDelayMs = 0;
@@ -33,16 +35,21 @@ function resolveKey(name) {
   if (Key[name] !== undefined) return Key[name];
   // allow "1".."9" shorthand
   if (/^[0-9]$/.test(name)) return Key["Num" + name];
-  if (name.length === 1) return Key[name.toUpperCase()];
-  console.warn(`⚠ Unknown key in mapping.json: "${name}" — ignored`);
+  if (typeof name === "string" && name.length === 1) return Key[name.toUpperCase()] ?? null;
+  console.warn(`⚠ Unknown key in mapping: "${name}" — ignored`);
   return null;
 }
 
-const buttonKeys = {};
-for (const [btn, keyName] of Object.entries(mapping.buttons || {})) {
-  const k = resolveKey(keyName);
-  if (k !== null) buttonKeys[btn] = k;
+function buildButtonKeys(btns) {
+  const out = {};
+  for (const [btn, keyName] of Object.entries(btns || {})) {
+    const k = resolveKey(keyName);
+    if (k !== null) out[btn] = k;
+  }
+  return out;
 }
+// live mapping — player 1's phone can replace it with a profile remap
+let buttonKeys = buildButtonKeys(mapping.buttons);
 
 const sticks = {
   L: {
@@ -80,26 +87,33 @@ const touchpad = {
   dx: 0, dy: 0, scrollAcc: 0,
 };
 
-// ---- virtual gamepad state (mirrored to browser-extension tabs) --------------
+const gyroSensitivity = mapping.gyro?.sensitivity ?? 3;
+
+// ---- players (up to 4 phones) & virtual gamepad state ------------------------
 // Standard Gamepad API button indices: https://w3c.github.io/gamepad/#remapping
 const GP_INDEX = {
   A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7,
   VIEW: 8, MENU: 9, L3: 10, R3: 11,
   DPAD_UP: 12, DPAD_DOWN: 13, DPAD_LEFT: 14, DPAD_RIGHT: 15,
 };
-const gpState = { axes: [0, 0, 0, 0], buttons: new Array(17).fill(0) };
+const players = [null, null, null, null]; // { ws, axes:[4], buttons:[17] }
+const consumers = new Set();              // browser tabs running the extension
+const playerCount = () => players.filter(Boolean).length;
 
-// ---- input actions ----------------------------------------------------------
-const pressedButtons = new Set();
+// ---- input actions (keyboard/mouse output — driven by player 1 only) ---------
+const pressedButtons = new Map(); // name -> nut-js Key actually held
 
 async function setButton(name, down) {
-  const key = buttonKeys[name];
-  if (key === undefined) return;
   try {
-    if (down && !pressedButtons.has(name)) {
-      pressedButtons.add(name);
+    if (down) {
+      if (pressedButtons.has(name)) return;
+      const key = buttonKeys[name];
+      if (key === undefined) return;
+      pressedButtons.set(name, key); // remember the exact key so remaps can't strand it
       await keyboard.pressKey(key);
-    } else if (!down && pressedButtons.has(name)) {
+    } else {
+      const key = pressedButtons.get(name);
+      if (key === undefined) return;
       pressedButtons.delete(name);
       await keyboard.releaseKey(key);
     }
@@ -129,7 +143,7 @@ async function updateStickKeys(stick) {
   await setDirKey(stick, "up", y < -deadzone);
 }
 
-// mouse loop (~60Hz) — applies right-stick velocity and touchpad deltas
+// mouse loop (~60Hz) — applies right-stick velocity, touchpad and gyro deltas
 let mouseLoopRunning = false;
 async function mouseLoop() {
   if (mouseLoopRunning) return;
@@ -163,7 +177,7 @@ async function mouseLoop() {
 }
 
 async function releaseEverything() {
-  for (const name of [...pressedButtons]) await setButton(name, false);
+  for (const name of [...pressedButtons.keys()]) await setButton(name, false);
   for (const s of Object.values(sticks)) {
     s.x = 0; s.y = 0;
     await updateStickKeys(s);
@@ -177,31 +191,53 @@ app.use(express.static(path.join(__dirname, "public")));
 // controller UI reads this to show which key each button fires
 app.get("/mapping.json", (req, res) => res.sendFile(path.join(__dirname, "mapping.json")));
 
+// QR code for sharing a profile: /qr?d=<base64 profile json>
+// Encodes a link back to this server so scanning it opens the pad and imports.
+app.get("/qr", async (req, res) => {
+  const d = String(req.query.d || "");
+  if (!d || d.length > 6000) return res.status(400).send("bad payload");
+  try {
+    const url = `http://${lanIPs()[0] || "localhost"}:${PORT}/#p=${encodeURIComponent(d)}`;
+    const svg = await QRCode.toString(url, { type: "svg", margin: 1, width: 480 });
+    res.type("image/svg+xml").send(svg);
+  } catch (e) {
+    res.status(500).send("qr error");
+  }
+});
+
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
-const phones = new Set();     // phone controller UIs
-const consumers = new Set();  // browser tabs running the PAD//LINK extension
 
 function gamepadMode() { return consumers.size > 0; }
 function sendTo(set, obj) {
   const msg = JSON.stringify(obj);
-  for (const c of set) if (c.readyState === 1) c.send(msg);
+  for (const c of set) if (c && c.readyState === 1) c.send(msg);
 }
-const broadcastState = () => sendTo(consumers, { t: "state", a: gpState.axes, b: gpState.buttons });
-const broadcastMode = () => sendTo(phones, { t: "mode", g: gamepadMode() });
+const sendPlayerState = (i) => {
+  const p = players[i];
+  if (p) sendTo(consumers, { t: "state", i, a: p.axes, b: p.buttons });
+};
+const broadcastMode = () => {
+  const phoneWs = new Set(players.filter(Boolean).map((p) => p.ws));
+  sendTo(phoneWs, { t: "mode", g: gamepadMode() });
+};
 
 wss.on("connection", (ws, req) => {
-  // browser extension attaching as a virtual gamepad consumer
+  // ---- browser extension attaching as a virtual gamepad consumer ----
   if ((req.url || "").includes("role=consumer")) {
     consumers.add(ws);
     console.log(`🕹  Virtual gamepad attached (${consumers.size} tab(s)) — keyboard/mouse mapping paused`);
     releaseEverything().catch(() => {});   // hand off cleanly: no held keys in gamepad mode
     broadcastMode();
-    if (phones.size > 0) broadcastState();
+    for (let i = 0; i < 4; i++) sendPlayerState(i);
 
     ws.on("message", (raw) => {
       let msg; try { msg = JSON.parse(raw); } catch { return; }
-      if (msg.t === "rumble") sendTo(phones, { t: "rumble", d: msg.d, m: msg.m }); // game rumble → phone vibration
+      if (msg.t === "rumble") {
+        // game rumble → that player's phone vibration
+        const p = players[msg.i | 0];
+        if (p) sendTo(new Set([p.ws]), { t: "rumble", d: msg.d, m: msg.m });
+      }
     });
     ws.on("close", () => {
       consumers.delete(ws);
@@ -211,44 +247,68 @@ wss.on("connection", (ws, req) => {
     return;
   }
 
-  phones.add(ws);
+  // ---- phone controller: assign the lowest free player slot ----
+  let slot = players.findIndex((p) => p === null);
+  if (slot !== -1) {
+    players[slot] = { ws, axes: [0, 0, 0, 0], buttons: new Array(17).fill(0) };
+  }
   const ip = req.socket.remoteAddress;
-  console.log(`🎮 Controller connected from ${ip} (${phones.size} active)`);
+  if (slot === -1) {
+    console.log(`🎮 Controller from ${ip} rejected — all 4 player slots taken`);
+  } else {
+    console.log(`🎮 P${slot + 1} connected from ${ip} (${playerCount()}/4 players)`);
+  }
   mouseLoop();
+  ws.send(JSON.stringify({ t: "player", i: slot }));
   ws.send(JSON.stringify({ t: "mode", g: gamepadMode() }));
-  if (gamepadMode()) broadcastState();
+  if (slot !== -1) sendPlayerState(slot);
+
+  const isP1 = () => slot === 0;
 
   ws.on("message", async (raw) => {
     let msg;
     try { msg = JSON.parse(raw); } catch { return; }
+    const p = slot === -1 ? null : players[slot];
 
     switch (msg.t) {
       case "b": { // button: { t:"b", k:"A", v:1|0 }
+        if (!p) return;
         const idx = GP_INDEX[msg.k];
         if (idx !== undefined) {
-          gpState.buttons[idx] = msg.v === 1 ? 1 : 0;
-          if (gamepadMode()) broadcastState();
+          p.buttons[idx] = msg.v === 1 ? 1 : 0;
+          if (gamepadMode()) sendPlayerState(slot);
         }
-        if (!gamepadMode()) await setButton(msg.k, msg.v === 1);
+        if (isP1() && !gamepadMode()) await setButton(msg.k, msg.v === 1);
         break;
       }
       case "s": { // stick: { t:"s", s:"L"|"R", x:-1..1, y:-1..1 }
-        const stick = sticks[msg.s];
-        if (!stick) return;
-        stick.x = Math.max(-1, Math.min(1, +msg.x || 0));
-        stick.y = Math.max(-1, Math.min(1, +msg.y || 0));
+        if (!p) return;
+        const x = Math.max(-1, Math.min(1, +msg.x || 0));
+        const y = Math.max(-1, Math.min(1, +msg.y || 0));
         const o = msg.s === "L" ? 0 : 2;
-        gpState.axes[o] = stick.x;
-        gpState.axes[o + 1] = stick.y;
-        if (gamepadMode()) broadcastState();
-        else if (stick.mode === "keys") await updateStickKeys(stick);
+        p.axes[o] = x;
+        p.axes[o + 1] = y;
+        if (gamepadMode()) sendPlayerState(slot);
+        if (isP1()) {
+          const stick = sticks[msg.s];
+          if (!stick) return;
+          stick.x = x; stick.y = y;
+          if (!gamepadMode() && stick.mode === "keys") await updateStickKeys(stick);
+        }
         break;
       }
-      case "m": // touchpad move: { t:"m", x:dx, y:dy } in screen px from phone
+      case "m": // touchpad move: { t:"m", x:dx, y:dy } — P1 owns the shared mouse
+        if (!isP1()) return;
         touchpad.dx += (+msg.x || 0) * touchpad.sensitivity;
         touchpad.dy += (+msg.y || 0) * touchpad.sensitivity;
         break;
+      case "g": // gyro aim: { t:"g", x:degX, y:degY } accumulated rotation
+        if (!isP1()) return;
+        touchpad.dx += (+msg.x || 0) * gyroSensitivity;
+        touchpad.dy += (+msg.y || 0) * gyroSensitivity;
+        break;
       case "c": // touchpad tap: { t:"c", b:"left"|"right" }
+        if (!isP1()) return;
         try {
           if (msg.b === "right") await mouse.rightClick();
           else await mouse.leftClick();
@@ -257,6 +317,7 @@ wss.on("connection", (ws, req) => {
         }
         break;
       case "w": { // touchpad two-finger scroll: { t:"w", y:dy }
+        if (!isP1()) return;
         const dir = touchpad.naturalScroll ? -1 : 1;
         touchpad.scrollAcc += (+msg.y || 0) * touchpad.scrollSensitivity * dir;
         const steps = Math.trunc(touchpad.scrollAcc);
@@ -271,6 +332,26 @@ wss.on("connection", (ws, req) => {
         }
         break;
       }
+      case "remap": // profile button mapping from P1's phone: { t:"remap", buttons:{A:"Space",...} }
+        if (!isP1()) return;
+        if (msg.buttons && typeof msg.buttons === "object" && Object.keys(msg.buttons).length <= 32) {
+          buttonKeys = buildButtonKeys(msg.buttons);
+          console.log("⌨  Button mapping updated from P1's active profile");
+        }
+        break;
+      case "type": // keyboard passthrough: { t:"type", s:"hello" }
+        if (typeof msg.s === "string" && msg.s.length > 0 && msg.s.length <= 200) {
+          try { await keyboard.type(msg.s); } catch (e) { console.error("type error:", e.message); }
+        }
+        break;
+      case "key": { // single key press: { t:"key", k:"Enter" }
+        const k = resolveKey(msg.k);
+        if (k !== null) {
+          try { await keyboard.pressKey(k); await keyboard.releaseKey(k); }
+          catch (e) { console.error("key error:", e.message); }
+        }
+        break;
+      }
       case "ping":
         ws.send(JSON.stringify({ t: "pong", id: msg.id }));
         break;
@@ -278,15 +359,16 @@ wss.on("connection", (ws, req) => {
   });
 
   ws.on("close", async () => {
-    phones.delete(ws);
-    console.log(`🔌 Controller disconnected (${phones.size} active)`);
-    if (phones.size === 0) {
-      await releaseEverything(); // never leave keys stuck down
-      mouseLoopRunning = false;
-      gpState.axes = [0, 0, 0, 0];
-      gpState.buttons.fill(0);
-      sendTo(consumers, { t: "off" }); // extension reports pad disconnected
+    if (slot !== -1) {
+      players[slot] = null;
+      sendTo(consumers, { t: "off", i: slot }); // extension reports this pad disconnected
+      console.log(`🔌 P${slot + 1} disconnected (${playerCount()}/4 players)`);
+      if (slot === 0) {
+        await releaseEverything(); // never leave P1's keys stuck down
+        buttonKeys = buildButtonKeys(mapping.buttons); // back to mapping.json defaults
+      }
     }
+    if (playerCount() === 0) mouseLoopRunning = false;
   });
 });
 
@@ -309,7 +391,7 @@ server.listen(PORT, () => {
   ips.forEach((ip) => console.log(`  →  http://${ip}:${PORT}`));
   console.log("\n  Open on your phone (same WiFi), or scan:\n");
   qrcode.generate(url, { small: true });
-  console.log("  Edit mapping.json to change key bindings.");
+  console.log("  Up to 4 phones can join (P1 drives keyboard/mouse mode).");
   console.log("  If keys don't fire: grant Accessibility permission");
   console.log("  to your terminal in System Settings → Privacy.\n");
 });

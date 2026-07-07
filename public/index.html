@@ -20,9 +20,10 @@
     --ink:#eef1f6;
     --dim:#8892a3;
     --faint:#3d475c;
-    --link:#57c8ff;          /* light-bar: linked */
+    --link:#57c8ff;          /* accent — retinted per player slot */
     --link-rgb:87,200,255;
     --warn:#ff5d5d;          /* light-bar: lost */
+    --amber:#ffb020;         /* light-bar: weak signal */
     --a:#79d055; --b:#ff5347; --x:#5b86ff; --y:#ffcb2e;
   }
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;touch-action:none}
@@ -54,27 +55,35 @@
   /* ---- HUD ---- */
   #hud{
     position:absolute;left:50%;top:2.5%;transform:translateX(-50%);z-index:10;
-    display:flex;align-items:center;gap:12px;
+    display:flex;align-items:center;gap:10px;
     background:rgba(23,28,38,.85);border:1px solid var(--edge);border-radius:99px;
-    padding:5px 8px 5px 16px;backdrop-filter:blur(10px);
+    padding:5px 8px 5px 14px;backdrop-filter:blur(10px);
     font-size:11px;letter-spacing:.14em;font-weight:700;color:var(--dim);
     text-transform:uppercase;
   }
-  #dot{width:8px;height:8px;border-radius:50%;background:var(--warn);box-shadow:0 0 8px var(--warn);transition:background .3s,box-shadow .3s}
+  #dot{width:8px;height:8px;border-radius:50%;background:var(--warn);box-shadow:0 0 8px var(--warn);transition:background .3s,box-shadow .3s;flex:none}
   body.linked #dot{background:var(--link);box-shadow:0 0 10px var(--link)}
-  #lat{color:var(--ink);font-variant-numeric:tabular-nums;min-width:52px;text-align:right}
-  #mode{color:var(--faint);border-left:1px solid var(--edge);padding-left:12px}
+  body.linked.weak #dot{background:var(--amber);box-shadow:0 0 10px var(--amber)}
+  #pnum{
+    padding:2px 8px;border-radius:99px;font-size:10px;letter-spacing:.1em;
+    background:rgba(var(--link-rgb),.15);color:var(--link);border:1px solid rgba(var(--link-rgb),.4);
+    display:none;
+  }
+  body.haslot #pnum{display:inline-block}
+  #lat{color:var(--ink);font-variant-numeric:tabular-nums;min-width:48px;text-align:right}
+  #spark{width:46px;height:14px;flex:none;opacity:.9}
+  #mode{color:var(--faint);border-left:1px solid var(--edge);padding-left:10px}
   #mode.gp{color:var(--link)}
-  #fsBtn,#setBtn{
+  .hudbtn{
     display:flex;align-items:center;justify-content:center;
-    width:30px;height:30px;border-radius:50%;
+    width:30px;height:30px;border-radius:50%;flex:none;
     background:var(--surface-hi);border:1px solid var(--edge);color:var(--dim);
     font-size:14px;
   }
-  #fsBtn.down,#setBtn.down{color:var(--link);border-color:var(--link)}
+  .hudbtn.down{color:var(--link);border-color:var(--link)}
 
   #toast{
-    position:absolute;left:50%;bottom:8%;transform:translateX(-50%) translateY(20px);z-index:20;
+    position:absolute;left:50%;bottom:8%;transform:translateX(-50%) translateY(20px);z-index:70;
     background:rgba(23,28,38,.95);border:1px solid var(--edge);border-radius:12px;
     padding:10px 18px;font-size:12px;color:var(--ink);letter-spacing:.02em;
     opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;max-width:80%;text-align:center;
@@ -165,6 +174,7 @@
   }
   body.linking #touchpad::before{--lb:rgba(var(--link-rgb),.9);animation:lbpulse 1.4s ease-in-out infinite}
   body.linked  #touchpad::before{--lb:var(--link);animation:none}
+  body.linked.weak #touchpad::before{--lb:var(--amber);animation:lbpulse 1.2s ease-in-out infinite}
   body.lost    #touchpad::before{--lb:var(--warn);animation:lbpulse 1s ease-in-out infinite}
   @keyframes lbpulse{0%,100%{opacity:.25}50%{opacity:.95}}
 
@@ -205,33 +215,37 @@
     color:var(--faint);text-transform:uppercase;pointer-events:none;
   }
 
-  /* ---- settings panel ---- */
-  #settings{
+  /* ---- overlay panels (settings / mapping / QR) ---- */
+  .overlay{
     position:fixed;inset:0;z-index:50;display:none;
     align-items:center;justify-content:center;
     background:rgba(6,8,12,.7);backdrop-filter:blur(6px);
   }
-  #settings.open{display:flex}
-  #settings .panel{
-    width:min(420px, 86vw);
+  .overlay.open{display:flex}
+  .panel{
+    width:min(440px, 88vw);max-height:84vh;overflow-y:auto;
     background:var(--surface);border:1px solid var(--edge);border-radius:18px;
     padding:18px 20px;box-shadow:0 20px 60px rgba(0,0,0,.6);
+    -webkit-overflow-scrolling:touch;overscroll-behavior:contain;
   }
-  #settings .ptitle{
+  /* the global *{touch-action:none} kills touch scrolling inside panels —
+     touch-action doesn't inherit, so every descendant needs pan-y itself */
+  .panel, .panel *{touch-action:pan-y}
+  .ptitle{
     display:flex;align-items:center;justify-content:space-between;
     font-size:12px;font-weight:800;letter-spacing:.2em;color:var(--ink);
-    text-transform:uppercase;margin-bottom:16px;
+    text-transform:uppercase;margin-bottom:14px;
   }
-  #setClose{
+  .pclose{
     width:32px;height:32px;border-radius:50%;border:1px solid var(--edge);
-    background:var(--surface-hi);color:var(--dim);font-size:14px;
+    background:var(--surface-hi);color:var(--dim);font-size:14px;flex:none;
   }
-  #settings .row{
-    display:flex;align-items:center;justify-content:space-between;
-    padding:12px 0;font-size:14px;color:var(--ink);font-weight:600;
+  .row{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:11px 0;font-size:14px;color:var(--ink);font-weight:600;
     border-bottom:1px solid var(--edge);
   }
-  #settings .row .hint{display:block;font-size:11px;color:var(--dim);font-weight:400;margin-top:2px}
+  .row .hint{display:block;font-size:11px;color:var(--dim);font-weight:400;margin-top:2px}
   /* toggle switch */
   .switch{position:relative;width:46px;height:26px;flex:none}
   .switch input{position:absolute;opacity:0;width:100%;height:100%;margin:0}
@@ -245,13 +259,52 @@
   }
   .switch input:checked + .knob{background:rgba(var(--link-rgb),.25);border-color:var(--link)}
   .switch input:checked + .knob::after{transform:translateX(20px);background:var(--link)}
+  select, .panel input[type=range]{
+    background:var(--surface-hi);color:var(--ink);border:1px solid var(--edge);
+    border-radius:8px;padding:6px 8px;font-size:13px;touch-action:auto;
+  }
+  .panel input[type=range]{accent-color:var(--link);padding:0;height:26px;width:110px}
+  .mini{
+    width:34px;height:34px;border-radius:10px;border:1px solid var(--edge);
+    background:var(--surface-hi);color:var(--ink);font-size:15px;flex:none;
+  }
+  .pctl{display:flex;align-items:center;gap:6px}
   .prow{
-    display:block;width:100%;margin-top:12px;padding:13px;
+    display:block;width:100%;margin-top:10px;padding:12px;
     border-radius:12px;border:1px solid var(--edge);
     background:var(--surface-hi);color:var(--ink);
     font-size:13px;font-weight:700;letter-spacing:.06em;text-align:center;
   }
   .prow.danger{color:var(--warn);border-color:rgba(255,93,93,.35);background:transparent}
+
+  /* mapping editor rows */
+  #mapRows .row{padding:8px 0}
+  #mapRows .row b{font-size:13px;letter-spacing:.08em}
+
+  /* QR view */
+  #qrview .panel{text-align:center}
+  #qimg{width:min(60vh,300px);height:min(60vh,300px);background:#fff;border-radius:12px;padding:8px;margin:6px auto}
+  #qrview .qhint{font-size:12px;color:var(--dim);margin:8px 0 4px}
+
+  /* ---- keyboard passthrough ---- */
+  #kbd{
+    position:fixed;left:0;right:0;top:0;z-index:65;display:none;
+    padding:calc(8px + env(safe-area-inset-top)) 12px 10px;
+    background:rgba(16,20,29,.97);border-bottom:1px solid var(--link);
+  }
+  #kbd.open{display:block}
+  #kbd .krow{display:flex;gap:8px;align-items:center}
+  #kin{
+    flex:1;min-width:0;background:var(--surface-hi);border:1px solid var(--edge);
+    border-radius:10px;color:var(--ink);font-size:15px;padding:10px 12px;
+    user-select:text;-webkit-user-select:text;touch-action:auto;
+  }
+  #kin:focus{outline:none;border-color:var(--link)}
+  #kbd .kkey{
+    padding:10px 11px;border-radius:10px;border:1px solid var(--edge);flex:none;
+    background:var(--surface-hi);color:var(--ink);font-size:12px;font-weight:700;
+  }
+  #kbd .khint{font-size:10px;color:var(--dim);letter-spacing:.08em;margin-top:6px;text-transform:uppercase}
 
   /* ---- layout edit mode ---- */
   #editbar{
@@ -291,10 +344,13 @@
 <div id="pad">
   <!-- HUD -->
   <div id="hud">
-    <span id="dot"></span><span id="status">LINKING</span><span id="lat">— ms</span>
+    <span id="dot"></span><span id="pnum">P1</span><span id="status">LINKING</span>
+    <canvas id="spark" width="46" height="14"></canvas>
+    <span id="lat">— ms</span>
     <span id="mode">KEYS</span>
-    <div id="setBtn" title="Settings">⚙</div>
-    <div id="fsBtn" title="Fullscreen">⛶</div>
+    <div class="hudbtn" id="kbdBtn" title="Keyboard">⌨</div>
+    <div class="hudbtn" id="setBtn" title="Settings">⚙</div>
+    <div class="hudbtn" id="fsBtn" title="Fullscreen">⛶</div>
   </div>
   <div id="toast"></div>
 
@@ -341,16 +397,86 @@
   <div class="tag" style="left:5%;bottom:3%">PAD//LINK</div>
 </div>
 
+<!-- keyboard passthrough bar -->
+<div id="kbd">
+  <div class="krow">
+    <input id="kin" placeholder="Type here — goes straight to the Mac" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <button class="kkey" data-key="Enter">↵</button>
+    <button class="kkey" data-key="Escape">esc</button>
+    <button class="kkey" data-key="Tab">tab</button>
+    <button class="kkey" id="kbdClose">✕</button>
+  </div>
+  <div class="krow" style="margin-top:8px">
+    <button class="kkey" data-key="Up">↑</button>
+    <button class="kkey" data-key="Down">↓</button>
+    <button class="kkey" data-key="Left">←</button>
+    <button class="kkey" data-key="Right">→</button>
+    <button class="kkey" data-key="Backspace">⌫</button>
+    <span class="khint">Every character is sent live</span>
+  </div>
+</div>
+
 <!-- settings panel -->
-<div id="settings">
+<div id="settings" class="overlay">
   <div class="panel">
-    <div class="ptitle">Controller settings <button id="setClose">✕</button></div>
+    <div class="ptitle">Controller settings <button class="pclose" id="setClose">✕</button></div>
+
     <div class="row">
-      <span>Vibration<span class="hint">Haptics on button press + game rumble</span></span>
+      <span>Vibration<span class="hint">Haptics on press + game rumble</span></span>
       <label class="switch"><input type="checkbox" id="vibToggle" checked><span class="knob"></span></label>
     </div>
+    <div class="row">
+      <span>Haptic strength</span>
+      <select id="hapticSel">
+        <option value="light">Light</option>
+        <option value="medium" selected>Medium</option>
+        <option value="heavy">Heavy</option>
+      </select>
+    </div>
+    <div class="row">
+      <span>UI sounds<span class="hint">Synth clicks per button group</span></span>
+      <label class="switch"><input type="checkbox" id="sndToggle"><span class="knob"></span></label>
+    </div>
+    <div class="row">
+      <span>Gyro aiming<span class="hint">Tilt the phone to move the camera</span></span>
+      <label class="switch"><input type="checkbox" id="gyroToggle"><span class="knob"></span></label>
+    </div>
+    <div class="row">
+      <span>Gyro sensitivity</span>
+      <input type="range" id="gyroSens" min="0.3" max="3" step="0.1" value="1">
+    </div>
+
+    <div class="row">
+      <span>Profile<span class="hint">Layout + buttons per game</span></span>
+      <span class="pctl">
+        <select id="profSel"></select>
+        <button class="mini" id="profNew">＋</button>
+        <button class="mini" id="profDel">🗑</button>
+      </span>
+    </div>
+
+    <button class="prow" id="editButtons">⌘ &nbsp;Edit button mapping</button>
+    <button class="prow" id="shareQR">⇱ &nbsp;Share profile as QR</button>
     <button class="prow" id="editLayout">✎ &nbsp;Edit layout — move &amp; resize any button</button>
-    <button class="prow danger" id="resetLayout">Reset layout to default</button>
+    <button class="prow danger" id="resetLayout">Reset this profile's layout</button>
+  </div>
+</div>
+
+<!-- button mapping editor -->
+<div id="mapedit" class="overlay">
+  <div class="panel">
+    <div class="ptitle">Button mapping <button class="pclose" id="mapClose">✕</button></div>
+    <div id="mapRows"></div>
+    <button class="prow" id="mapSave">Save mapping</button>
+  </div>
+</div>
+
+<!-- profile QR share -->
+<div id="qrview" class="overlay">
+  <div class="panel">
+    <div class="ptitle">Share profile <button class="pclose" id="qClose">✕</button></div>
+    <img id="qimg" alt="profile QR">
+    <div class="qhint">Scan with the other phone's camera (same WiFi).<br>It opens PAD//LINK and imports this profile.</div>
   </div>
 </div>
 
@@ -363,74 +489,221 @@
 
 <script>
 (() => {
-  // ---------- websocket ----------
+  const $ = (id) => document.getElementById(id);
+
+  // ============ persistent settings ============
+  const CFG_KEY = "padlink-settings-v1";
+  const CFG = Object.assign(
+    { vib: localStorage.getItem("padlink-vib") !== "0", sounds: false, haptic: "medium", gyro: false, gyroSens: 1 },
+    JSON.parse(localStorage.getItem(CFG_KEY) || "{}")
+  );
+  const saveCfg = () => localStorage.setItem(CFG_KEY, JSON.stringify(CFG));
+
+  // ============ profiles (layout + button mapping per game) ============
+  const PROF_KEY = "padlink-profiles-v2";
+  let store;
+  try { store = JSON.parse(localStorage.getItem(PROF_KEY)) || null; } catch { store = null; }
+  if (!store || !store.profiles || !store.profiles[store.active]) {
+    // migrate the old single-layout storage into a Default profile
+    let oldLayout = {};
+    try { oldLayout = JSON.parse(localStorage.getItem("padlink-layout-v1")) || {}; } catch {}
+    store = { active: "Default", profiles: { Default: { layout: oldLayout, buttons: null } } };
+  }
+  const saveStore = () => localStorage.setItem(PROF_KEY, JSON.stringify(store));
+  const profile = () => store.profiles[store.active];
+
+  // import a profile shared via QR: /#p=<base64 json>
+  if (location.hash.startsWith("#p=")) {
+    try {
+      const json = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(location.hash.slice(3))))));
+      if (json && json.name) {
+        let name = String(json.name).slice(0, 24);
+        while (store.profiles[name]) name += "+";
+        store.profiles[name] = { layout: json.layout || {}, buttons: json.buttons || null };
+        store.active = name;
+        saveStore();
+        setTimeout(() => toast(`Profile "${name}" imported`, 3000), 600);
+      }
+    } catch {}
+    history.replaceState(null, "", location.pathname);
+  }
+
+  const EDIT = { on: false, sel: null };   // layout edit mode
+
+  // ============ feedback engine: haptic patterns + synth sounds ============
+  const HAPTIC_SCALE = { light: 0.6, medium: 1, heavy: 1.6 };
+  const FX = {
+    face:    { v: [10],         f: 520 },
+    dpad:    { v: [8],          f: 410 },
+    bumper:  { v: [12],         f: 340 },
+    trigger: { v: [8, 25, 12],  f: 290 },
+    pill:    { v: [10],         f: 600 },
+    stick:   { v: [8],          f: 250 },
+    tap:     { v: [10],         f: 700 },
+    tapR:    { v: [10, 30, 12], f: 640 },
+    ui:      { v: [14],         f: 480 },
+  };
+  let actx = null;
+  function tone(freq) {
+    if (!CFG.sounds) return;
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === "suspended") actx.resume();
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = "square"; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.045, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.045);
+      o.connect(g).connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + 0.05);
+    } catch {}
+  }
+  function fx(group) {
+    const e = FX[group] || FX.ui;
+    if (CFG.vib && navigator.vibrate) {
+      const s = HAPTIC_SCALE[CFG.haptic] || 1;
+      navigator.vibrate(e.v.map((ms) => Math.max(1, Math.round(ms * s))));
+    }
+    tone(e.f);
+  }
+  const buzz = (ms = 12) => { if (CFG.vib && navigator.vibrate) navigator.vibrate(ms); };
+
+  // ============ websocket + connection quality ============
   let ws, alive = false;
-  const statusEl = document.getElementById("status");
-  const latEl = document.getElementById("lat");
+  const statusEl = $("status"), latEl = $("lat"), modeEl = $("mode"), pnumEl = $("pnum");
+  const NET = { rtts: [], lost: [], pending: new Map(), stickMs: 33, poor: false };
+
   const setLink = (state, label) => {
-    document.body.classList.remove("linking","linked","lost");
+    document.body.classList.remove("linking", "linked", "lost");
     document.body.classList.add(state);
     statusEl.textContent = label;
   };
 
-  function connect(){
-    setLink("linking","LINKING");
+  const PCOLORS = [
+    ["#57c8ff", "87,200,255"],   // P1 cyan
+    ["#ff5bd6", "255,91,214"],   // P2 magenta
+    ["#8ce06e", "140,224,110"],  // P3 green
+    ["#ffb020", "255,176,32"],   // P4 amber
+  ];
+  function setPlayer(i) {
+    if (i < 0) { pnumEl.textContent = "FULL"; document.body.classList.add("haslot"); return; }
+    const [c, rgb] = PCOLORS[i] || PCOLORS[0];
+    document.documentElement.style.setProperty("--link", c);
+    document.documentElement.style.setProperty("--link-rgb", rgb);
+    pnumEl.textContent = "P" + (i + 1);
+    document.body.classList.add("haslot");
+  }
+
+  function connect() {
+    setLink("linking", "LINKING");
     ws = new WebSocket(`ws://${location.host}`);
-    ws.onopen = () => { alive = true; setLink("linked","LINKED"); buzz(30); };
-    ws.onclose = () => { alive = false; setLink("lost","RETRY"); latEl.textContent = "— ms"; setTimeout(connect, 1200); };
+    ws.onopen = () => {
+      alive = true;
+      setLink("linked", "LINKED");
+      buzz(30);
+      sendRemap(); // apply the active profile's button mapping server-side
+    };
+    ws.onclose = () => {
+      alive = false;
+      setLink("lost", "RETRY");
+      latEl.textContent = "— ms";
+      document.body.classList.remove("weak", "haslot");
+      setTimeout(connect, 1200);
+    };
     ws.onerror = () => ws.close();
     ws.onmessage = (e) => {
       try {
         const m = JSON.parse(e.data);
-        if (m.t === "pong") latEl.textContent = (performance.now() - m.id).toFixed(0) + " ms";
+        if (m.t === "pong") {
+          const rtt = performance.now() - m.id;
+          NET.pending.delete(m.id);
+          pushRtt(rtt, false);
+          latEl.textContent = rtt.toFixed(0) + " ms";
+        }
+        else if (m.t === "player") setPlayer(m.i);
         else if (m.t === "mode") {
-          // gamepad mode = the browser extension is attached; keys are paused
-          const modeEl = document.getElementById("mode");
           modeEl.textContent = m.g ? "GAMEPAD" : "KEYS";
           modeEl.classList.toggle("gp", !!m.g);
         }
         else if (m.t === "rumble") {
-          // game rumble forwarded from the browser extension
-          if (settings.vib && navigator.vibrate && (m.m ?? 1) > 0.05) navigator.vibrate(Math.min(1000, m.d || 100));
+          if (CFG.vib && navigator.vibrate && (m.m ?? 1) > 0.05) navigator.vibrate(Math.min(1000, m.d || 100));
         }
       } catch {}
     };
   }
   connect();
-  setInterval(() => { if (alive) ws.send(JSON.stringify({t:"ping", id: performance.now()})); }, 2000);
 
   const send = (o) => { if (alive) ws.send(JSON.stringify(o)); };
 
-  // ---------- user settings ----------
-  const settings = { vib: localStorage.getItem("padlink-vib") !== "0" };
-  const EDIT = { on: false, sel: null };   // layout edit mode
-  const buzz = (ms=12) => { if (settings.vib && navigator.vibrate) navigator.vibrate(ms); };
+  // ping every 1s; count unanswered pings as loss
+  setInterval(() => {
+    if (!alive) return;
+    const now = performance.now();
+    for (const [id, t] of NET.pending) {
+      if (now - t > 2500) { NET.pending.delete(id); pushRtt(null, true); }
+    }
+    const id = now;
+    NET.pending.set(id, now);
+    ws.send(JSON.stringify({ t: "ping", id }));
+  }, 1000);
 
-  // ---------- toast ----------
-  const toastEl = document.getElementById("toast");
+  function pushRtt(rtt, lost) {
+    if (!lost) NET.rtts.push(rtt);
+    if (NET.rtts.length > 30) NET.rtts.shift();
+    NET.lost.push(lost ? 1 : 0);
+    if (NET.lost.length > 10) NET.lost.shift();
+    const recent = NET.rtts.slice(-5);
+    const avg = recent.length ? recent.reduce((a, b) => a + b, 0) / recent.length : 0;
+    const lossCt = NET.lost.reduce((a, b) => a + b, 0);
+    NET.poor = avg > 120 || lossCt >= 2;
+    // auto-tune: halve stick send rate on a weak connection
+    NET.stickMs = NET.poor ? 66 : 33;
+    document.body.classList.toggle("weak", NET.poor && alive);
+    drawSpark();
+  }
+
+  const spark = $("spark").getContext("2d");
+  function drawSpark() {
+    const w = 46, h = 14;
+    spark.clearRect(0, 0, w, h);
+    const data = NET.rtts;
+    if (data.length < 2) return;
+    const max = Math.max(100, ...data);
+    spark.beginPath();
+    data.forEach((v, i) => {
+      const x = (i / (data.length - 1)) * (w - 2) + 1;
+      const y = h - 2 - (Math.min(v, max) / max) * (h - 4);
+      i === 0 ? spark.moveTo(x, y) : spark.lineTo(x, y);
+    });
+    spark.strokeStyle = NET.poor ? "#ffb020" : getComputedStyle(document.documentElement).getPropertyValue("--link").trim();
+    spark.lineWidth = 1.4;
+    spark.stroke();
+  }
+
+  // ============ toast ============
+  const toastEl = $("toast");
   let toastTimer;
-  function toast(msg, ms=3500){
+  function toast(msg, ms = 3500) {
     toastEl.textContent = msg;
     toastEl.classList.add("show");
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => toastEl.classList.remove("show"), ms);
   }
 
-  // ---------- fullscreen ----------
+  // ============ fullscreen ============
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
   const inStandalone = window.matchMedia("(display-mode: fullscreen), (display-mode: standalone)").matches
                        || navigator.standalone === true;
-  async function goFullscreen(){
+  async function goFullscreen() {
     const el = document.documentElement;
     const req = el.requestFullscreen || el.webkitRequestFullscreen;
     if (req) {
-      try { await req.call(el, {navigationUI:"hide"}); } catch {}
+      try { await req.call(el, { navigationUI: "hide" }); } catch {}
       try { await screen.orientation.lock("landscape"); } catch {}
       return true;
     }
     return false;
   }
-  document.getElementById("fsBtn").addEventListener("pointerdown", async (e) => {
+  $("fsBtn").addEventListener("pointerdown", async (e) => {
     e.stopPropagation();
     if (document.fullscreenElement || document.webkitFullscreenElement) {
       try { await (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch {}
@@ -441,29 +714,32 @@
       toast("For fullscreen on iPhone: Share → Add to Home Screen, then open PAD//LINK from your home screen");
     }
   });
-
-  // auto fullscreen + wake lock on first touch
   let booted = false;
   document.body.addEventListener("pointerdown", async () => {
     if (booted) return; booted = true;
     if (!inStandalone) await goFullscreen();
     try { await navigator.wakeLock.request("screen"); } catch {}
     if (isIOS && !inStandalone) toast("Tip: Add to Home Screen for true fullscreen", 4000);
-  }, {capture:true});
-  // re-acquire wake lock when returning to the page
+  }, { capture: true });
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) navigator.wakeLock?.request("screen").catch(() => {});
   });
 
-  // ---------- key-cap labels from mapping.json ----------
+  // ============ button mapping: defaults + profile override ============
+  const BTN_ORDER = ["A","B","X","Y","LB","RB","LT","RT","L3","R3","VIEW","MENU","DPAD_UP","DPAD_DOWN","DPAD_LEFT","DPAD_RIGHT"];
+  let DEFAULT_BUTTONS = {};
+  const effButtons = () => profile().buttons || DEFAULT_BUTTONS;
+
   const KEYCAP = {
     Space:"space", Enter:"enter", Escape:"esc", Tab:"tab",
     LeftShift:"shift", LeftControl:"ctrl", LeftAlt:"opt", LeftCmd:"cmd",
     Backspace:"del", Up:"↑", Down:"↓", Left:"←", Right:"→",
   };
-  const capOf = (n) => KEYCAP[n] || String(n).replace(/^Num/,"").toLowerCase();
-  fetch("/mapping.json").then(r => r.json()).then(map => {
-    for (const [btn, keyName] of Object.entries(map.buttons || {})) {
+  const capOf = (n) => KEYCAP[n] || String(n).replace(/^Num/, "").toLowerCase();
+
+  function renderKeycaps() {
+    document.querySelectorAll("[data-k] .key").forEach((el) => el.remove());
+    for (const [btn, keyName] of Object.entries(effButtons())) {
       const el = document.querySelector(`[data-k="${btn}"]`);
       if (!el || !keyName) continue;
       const tag = document.createElement("span");
@@ -471,27 +747,40 @@
       tag.textContent = capOf(keyName);
       el.appendChild(tag);
     }
+  }
+  function sendRemap() { send({ t: "remap", buttons: effButtons() }); }
+
+  fetch("/mapping.json").then((r) => r.json()).then((map) => {
+    DEFAULT_BUTTONS = map.buttons || {};
+    renderKeycaps();
+    if (profile().buttons) sendRemap();
     const ls = map.leftStick || {}, rs = map.rightStick || {};
-    document.getElementById("lstickKey").textContent =
-      ls.mode === "mouse" ? "mouse" : [ls.up,ls.left,ls.down,ls.right].filter(Boolean).join("").toLowerCase();
-    document.getElementById("rstickKey").textContent =
-      rs.mode === "mouse" ? "mouse" : [rs.up,rs.left,rs.down,rs.right].filter(Boolean).join("").toLowerCase();
+    $("lstickKey").textContent =
+      ls.mode === "mouse" ? "mouse" : [ls.up, ls.left, ls.down, ls.right].filter(Boolean).join("").toLowerCase();
+    $("rstickKey").textContent =
+      rs.mode === "mouse" ? "mouse" : [rs.up, rs.left, rs.down, rs.right].filter(Boolean).join("").toLowerCase();
   }).catch(() => {});
 
-  // ---------- buttons (multi-touch safe) ----------
-  document.querySelectorAll("[data-k]").forEach(el => {
+  // ============ buttons (multi-touch safe) ============
+  const groupOf = (el) =>
+    el.classList.contains("face") ? "face" :
+    el.classList.contains("dbtn") ? "dpad" :
+    el.classList.contains("trig") ? "trigger" :
+    el.classList.contains("bump") ? "bumper" : "pill";
+
+  document.querySelectorAll("[data-k]").forEach((el) => {
     const k = el.dataset.k;
     const down = (e) => {
       if (EDIT.on) return;
       e.preventDefault();
       el.setPointerCapture(e.pointerId);
       el.classList.add("down");
-      send({t:"b", k, v:1});
-      buzz();
+      send({ t: "b", k, v: 1 });
+      fx(groupOf(el));
     };
     const up = () => {
       el.classList.remove("down");
-      send({t:"b", k, v:0});
+      send({ t: "b", k, v: 0 });
     };
     el.addEventListener("pointerdown", down);
     el.addEventListener("pointerup", up);
@@ -499,17 +788,17 @@
     el.addEventListener("lostpointercapture", up);
   });
 
-  // ---------- PS5-style touchpad ----------
-  const tp = document.getElementById("touchpad");
+  // ============ PS5-style touchpad ============
+  const tp = $("touchpad");
   {
-    const fingers = new Map();   // pointerId -> {x, y, dot}
+    const fingers = new Map();
     let maxFingers = 0, startT = 0, travel = 0;
     let accX = 0, accY = 0, accScroll = 0, rafQueued = false;
 
     const flush = () => {
       rafQueued = false;
-      if (accX || accY) { send({t:"m", x:+accX.toFixed(1), y:+accY.toFixed(1)}); accX = 0; accY = 0; }
-      if (Math.abs(accScroll) >= 1) { send({t:"w", y:+accScroll.toFixed(1)}); accScroll = 0; }
+      if (accX || accY) { send({ t: "m", x: +accX.toFixed(1), y: +accY.toFixed(1) }); accX = 0; accY = 0; }
+      if (Math.abs(accScroll) >= 1) { send({ t: "w", y: +accScroll.toFixed(1) }); accScroll = 0; }
     };
     const queue = () => { if (!rafQueued) { rafQueued = true; requestAnimationFrame(flush); } };
 
@@ -523,7 +812,7 @@
       dot.style.left = (e.clientX - r.left) + "px";
       dot.style.top = (e.clientY - r.top) + "px";
       tp.appendChild(dot);
-      fingers.set(e.pointerId, {x: e.clientX, y: e.clientY, dot});
+      fingers.set(e.pointerId, { x: e.clientX, y: e.clientY, dot });
       if (fingers.size === 1) { maxFingers = 1; startT = performance.now(); travel = 0; }
       maxFingers = Math.max(maxFingers, fingers.size);
       tp.classList.add("touching");
@@ -540,7 +829,6 @@
       f.dot.style.top = (e.clientY - r.top) + "px";
       travel += Math.hypot(dx, dy);
       if (fingers.size >= 2) {
-        // two-finger drag = scroll (use half of combined movement)
         accScroll += dy / fingers.size;
       } else {
         accX += dx; accY += dy;
@@ -558,8 +846,8 @@
         const quick = performance.now() - startT < 250 && travel < 14;
         if (quick) {
           const right = maxFingers >= 2;
-          send({t:"c", b: right ? "right" : "left"});
-          buzz(right ? 18 : 10);
+          send({ t: "c", b: right ? "right" : "left" });
+          fx(right ? "tapR" : "tap");
           const r = tp.getBoundingClientRect();
           const rip = document.createElement("div");
           rip.className = "ripple";
@@ -576,8 +864,8 @@
     tp.addEventListener("pointercancel", lift);
   }
 
-  // ---------- analog sticks ----------
-  function makeStick(el, id){
+  // ============ analog sticks ============
+  function makeStick(el, id) {
     const thumb = el.querySelector(".thumb");
     const ring = el.querySelector(".ring");
     let pid = null, cx = 0, cy = 0, radius = 1;
@@ -585,18 +873,18 @@
 
     const measure = () => {
       const r = el.getBoundingClientRect();
-      cx = r.left + r.width/2; cy = r.top + r.height/2;
-      radius = r.width/2 * 0.72;
+      cx = r.left + r.width / 2; cy = r.top + r.height / 2;
+      radius = r.width / 2 * 0.72;
     };
 
     const apply = (x, y) => {
-      thumb.style.transform = `translate(${x*radius}px, ${y*radius}px)`;
+      thumb.style.transform = `translate(${x * radius}px, ${y * radius}px)`;
       const mag = Math.hypot(x, y);
       ring.style.setProperty("--glow", Math.min(1, mag).toFixed(2));
-      ring.style.setProperty("--ang", (Math.atan2(y, x)*180/Math.PI + 60) + "deg");
+      ring.style.setProperty("--ang", (Math.atan2(y, x) * 180 / Math.PI + 60) + "deg");
       const now = performance.now();
-      if (now - lastSent > 33 || (x===0 && y===0)) {
-        if (x !== lx || y !== ly) { send({t:"s", s:id, x:+x.toFixed(3), y:+y.toFixed(3)}); lx=x; ly=y; }
+      if (now - lastSent > NET.stickMs || (x === 0 && y === 0)) {
+        if (x !== lx || y !== ly) { send({ t: "s", s: id, x: +x.toFixed(3), y: +y.toFixed(3) }); lx = x; ly = y; }
         lastSent = now;
       }
     };
@@ -610,7 +898,7 @@
       el.classList.add("active");
       measure();
       move(e);
-      buzz(8);
+      fx("stick");
     });
 
     const move = (e) => {
@@ -627,91 +915,270 @@
       pid = null;
       el.classList.remove("active");
       apply(0, 0);
-      send({t:"s", s:id, x:0, y:0});
+      send({ t: "s", s: id, x: 0, y: 0 });
     };
 
     el.addEventListener("pointermove", move);
     el.addEventListener("pointerup", end);
     el.addEventListener("pointercancel", end);
   }
+  makeStick($("stickL"), "L");
+  makeStick($("stickR"), "R");
 
-  makeStick(document.getElementById("stickL"), "L");
-  makeStick(document.getElementById("stickR"), "R");
+  // ============ gyro aiming ============
+  let gyroX = 0, gyroY = 0, gyroRaf = false;
+  function gyroFlush() {
+    gyroRaf = false;
+    if (Math.abs(gyroX) > 0.01 || Math.abs(gyroY) > 0.01) {
+      send({ t: "g", x: +(gyroX * CFG.gyroSens).toFixed(2), y: +(gyroY * CFG.gyroSens).toFixed(2) });
+      gyroX = 0; gyroY = 0;
+    }
+  }
+  function onMotion(e) {
+    if (EDIT.on || document.hidden) return;
+    const rr = e.rotationRate;
+    if (!rr || rr.beta == null) return;
+    const dt = (e.interval && e.interval < 1 ? e.interval : 0.016); // seconds
+    const flip = (screen.orientation?.type || "").includes("secondary") ? -1 : 1;
+    // landscape: yaw = rotation around the device's short axis (beta),
+    // pitch = rotation around the device's long axis (gamma). deg/s → deg.
+    const NOISE = 1.5; // deg/s gate so a resting phone doesn't drift
+    if (Math.abs(rr.beta) > NOISE)  gyroX += -rr.beta  * dt * flip;
+    if (Math.abs(rr.gamma) > NOISE) gyroY += -rr.gamma * dt * flip;
+    if (!gyroRaf) { gyroRaf = true; requestAnimationFrame(gyroFlush); }
+  }
+  async function setGyro(on) {
+    if (on && typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
+      const p = await DeviceMotionEvent.requestPermission().catch(() => "denied");
+      if (p !== "granted") { toast("Motion permission denied — gyro stays off"); return false; }
+    }
+    if (on) window.addEventListener("devicemotion", onMotion);
+    else window.removeEventListener("devicemotion", onMotion);
+    return true;
+  }
+  if (CFG.gyro) setGyro(true);
 
+  // ============ keyboard passthrough ============
+  const kbd = $("kbd"), kin = $("kin");
+  let kprev = "";
+  $("kbdBtn").addEventListener("pointerdown", (e) => {
+    e.stopPropagation();
+    kbd.classList.add("open");
+    kin.value = ""; kprev = "";
+    setTimeout(() => kin.focus(), 50);
+  });
+  $("kbdClose").addEventListener("click", () => {
+    kbd.classList.remove("open");
+    kin.blur();
+  });
+  kin.addEventListener("input", () => {
+    const v = kin.value;
+    let i = 0;
+    while (i < Math.min(kprev.length, v.length) && kprev[i] === v[i]) i++;
+    for (let n = 0; n < kprev.length - i; n++) send({ t: "key", k: "Backspace" });
+    const added = v.slice(i);
+    if (added) send({ t: "type", s: added });
+    kprev = v;
+    // keep the field from growing forever
+    if (v.length > 120) { kin.value = ""; kprev = ""; }
+  });
+  kin.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      send({ t: "key", k: "Enter" });
+      kin.value = ""; kprev = "";
+    }
+  });
+  kbd.querySelectorAll("[data-key]").forEach((b) => {
+    b.addEventListener("click", () => { send({ t: "key", k: b.dataset.key }); fx("ui"); });
+  });
+
+  // ============ release-all safety ============
   const releaseAll = () => {
-    send({t:"s", s:"L", x:0, y:0});
-    send({t:"s", s:"R", x:0, y:0});
-    document.querySelectorAll("[data-k].down").forEach(el => {
+    send({ t: "s", s: "L", x: 0, y: 0 });
+    send({ t: "s", s: "R", x: 0, y: 0 });
+    document.querySelectorAll("[data-k].down").forEach((el) => {
       el.classList.remove("down");
-      send({t:"b", k: el.dataset.k, v:0});
+      send({ t: "b", k: el.dataset.k, v: 0 });
     });
   };
-
-  // release all inputs if page hidden (call/app switch) — no stuck keys
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) releaseAll();
   });
 
-  // ---------- settings panel ----------
-  const settingsEl = document.getElementById("settings");
-  const vibToggle = document.getElementById("vibToggle");
-  vibToggle.checked = settings.vib;
-  vibToggle.addEventListener("change", () => {
-    settings.vib = vibToggle.checked;
-    localStorage.setItem("padlink-vib", settings.vib ? "1" : "0");
-    buzz(25);
+  // ============ settings panel ============
+  const settingsEl = $("settings");
+  const vibToggle = $("vibToggle"), sndToggle = $("sndToggle"), hapticSel = $("hapticSel");
+  const gyroToggle = $("gyroToggle"), gyroSens = $("gyroSens");
+  vibToggle.checked = CFG.vib;
+  sndToggle.checked = CFG.sounds;
+  hapticSel.value = CFG.haptic;
+  gyroToggle.checked = CFG.gyro;
+  gyroSens.value = CFG.gyroSens;
+
+  vibToggle.addEventListener("change", () => { CFG.vib = vibToggle.checked; saveCfg(); buzz(25); });
+  sndToggle.addEventListener("change", () => { CFG.sounds = sndToggle.checked; saveCfg(); tone(520); });
+  hapticSel.addEventListener("change", () => { CFG.haptic = hapticSel.value; saveCfg(); fx("face"); });
+  gyroSens.addEventListener("input", () => { CFG.gyroSens = +gyroSens.value; saveCfg(); });
+  gyroToggle.addEventListener("change", async () => {
+    if (gyroToggle.checked) {
+      const ok = await setGyro(true);
+      if (!ok) { gyroToggle.checked = false; return; }
+      toast("Gyro on — tilt the phone to aim");
+    } else {
+      setGyro(false);
+    }
+    CFG.gyro = gyroToggle.checked;
+    saveCfg();
   });
-  document.getElementById("setBtn").addEventListener("pointerdown", (e) => {
+
+  $("setBtn").addEventListener("pointerdown", (e) => {
     e.stopPropagation();
     settingsEl.classList.add("open");
+    renderProfiles();
   });
-  document.getElementById("setClose").addEventListener("click", () => settingsEl.classList.remove("open"));
+  $("setClose").addEventListener("click", () => settingsEl.classList.remove("open"));
   settingsEl.addEventListener("pointerdown", (e) => {
     if (e.target === settingsEl) settingsEl.classList.remove("open");
   });
-  document.getElementById("resetLayout").addEventListener("click", () => {
-    localStorage.removeItem(LAYOUT_KEY);
-    location.reload();
+
+  // ============ profiles UI ============
+  const profSel = $("profSel");
+  function renderProfiles() {
+    profSel.innerHTML = "";
+    for (const name of Object.keys(store.profiles)) {
+      const o = document.createElement("option");
+      o.value = o.textContent = name;
+      if (name === store.active) o.selected = true;
+      profSel.appendChild(o);
+    }
+  }
+  function activateProfile(name) {
+    if (!store.profiles[name]) return;
+    store.active = name;
+    saveStore();
+    layout = profile().layout;
+    applyLayout();
+    renderKeycaps();
+    sendRemap();
+    toast(`Profile: ${name}`, 1600);
+  }
+  profSel.addEventListener("change", () => activateProfile(profSel.value));
+  $("profNew").addEventListener("click", () => {
+    const name = (prompt("New profile name (copies current):") || "").trim().slice(0, 24);
+    if (!name) return;
+    if (store.profiles[name]) { toast("That name already exists"); return; }
+    store.profiles[name] = JSON.parse(JSON.stringify({ layout: profile().layout, buttons: profile().buttons }));
+    activateProfile(name);
+    renderProfiles();
+  });
+  $("profDel").addEventListener("click", () => {
+    const name = store.active;
+    if (Object.keys(store.profiles).length <= 1) { toast("Can't delete the last profile"); return; }
+    if (!confirm(`Delete profile "${name}"?`)) return;
+    delete store.profiles[name];
+    activateProfile(Object.keys(store.profiles)[0]);
+    renderProfiles();
   });
 
-  // ---------- layout editor (move + resize every control) ----------
-  const LAYOUT_KEY = "padlink-layout-v1";
-  let layout = {};
-  try { layout = JSON.parse(localStorage.getItem(LAYOUT_KEY)) || {}; } catch {}
-  const saveLayout = () => localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout));
+  // ---- button mapping editor ----
+  const KEY_CHOICES = (() => {
+    const list = [];
+    for (let c = 65; c <= 90; c++) list.push([String.fromCharCode(c), String.fromCharCode(c)]);
+    for (let n = 0; n <= 9; n++) list.push(["Num" + n, String(n)]);
+    [["Space","space"],["Enter","enter"],["Escape","esc"],["Tab","tab"],["Backspace","delete"],
+     ["LeftShift","shift"],["LeftControl","ctrl"],["LeftAlt","option"],["LeftCmd","cmd"],
+     ["Up","↑"],["Down","↓"],["Left","←"],["Right","→"],
+     ["Comma",","],["Period","."],["Slash","/"],["Semicolon",";"],["Quote","'"],["Minus","-"],["Equal","="],["Grave","`"]]
+      .forEach((p) => list.push(p));
+    for (let f = 1; f <= 12; f++) list.push(["F" + f, "F" + f]);
+    return list;
+  })();
 
-  const padEl = document.getElementById("pad");
+  $("editButtons").addEventListener("click", () => {
+    settingsEl.classList.remove("open");
+    const rows = $("mapRows");
+    rows.innerHTML = "";
+    const cur = effButtons();
+    for (const btn of BTN_ORDER) {
+      const row = document.createElement("div");
+      row.className = "row";
+      const label = document.createElement("b");
+      label.textContent = btn.replace(/^DPAD_/, "D-PAD ");
+      const sel = document.createElement("select");
+      sel.dataset.btn = btn;
+      for (const [val, lab] of KEY_CHOICES) {
+        const o = document.createElement("option");
+        o.value = val; o.textContent = lab;
+        sel.appendChild(o);
+      }
+      sel.value = cur[btn] || "Space";
+      row.appendChild(label); row.appendChild(sel);
+      rows.appendChild(row);
+    }
+    $("mapedit").classList.add("open");
+  });
+  $("mapClose").addEventListener("click", () => $("mapedit").classList.remove("open"));
+  $("mapSave").addEventListener("click", () => {
+    const btns = {};
+    $("mapRows").querySelectorAll("select").forEach((s) => { btns[s.dataset.btn] = s.value; });
+    profile().buttons = btns;
+    saveStore();
+    renderKeycaps();
+    sendRemap();
+    $("mapedit").classList.remove("open");
+    toast("Button mapping saved to profile");
+  });
+
+  // ---- QR share ----
+  $("shareQR").addEventListener("click", () => {
+    settingsEl.classList.remove("open");
+    const payload = { name: store.active, layout: profile().layout, buttons: profile().buttons };
+    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    $("qimg").src = "/qr?d=" + encodeURIComponent(b64);
+    $("qrview").classList.add("open");
+  });
+  $("qClose").addEventListener("click", () => $("qrview").classList.remove("open"));
+
+  // ============ layout editor (per-profile move + resize) ============
+  let layout = profile().layout;
+  const saveLayout = () => { profile().layout = layout; saveStore(); };
+
+  const padEl = $("pad");
   const editables = [
     ...document.querySelectorAll("[data-k]"),
-    document.getElementById("stickL"),
-    document.getElementById("stickR"),
-    document.getElementById("touchpad"),
+    $("stickL"), $("stickR"), $("touchpad"),
   ];
-  editables.forEach(el => { el.dataset.cid = el.dataset.k || el.id; });
+  editables.forEach((el) => { el.dataset.cid = el.dataset.k || el.id; });
   const NICE = { stickL: "L Stick", stickR: "R Stick", touchpad: "Touchpad" };
+  // remember the factory style of every control so profiles can reset cleanly
+  const FACTORY = new Map(editables.map((el) => [el, el.getAttribute("style") || ""]));
 
-  // apply saved layout on load
-  for (const el of editables) {
-    const c = layout[el.dataset.cid];
-    if (!c) continue;
-    if (c.x != null) {
-      el.style.left = c.x + "%"; el.style.top = c.y + "%";
-      el.style.right = "auto"; el.style.bottom = "auto";
+  function applyLayout() {
+    for (const el of editables) {
+      el.setAttribute("style", FACTORY.get(el));
+      const c = layout[el.dataset.cid];
+      if (!c) continue;
+      if (c.x != null) {
+        el.style.left = c.x + "%"; el.style.top = c.y + "%";
+        el.style.right = "auto"; el.style.bottom = "auto";
+      }
+      if (c.s) el.style.setProperty("--sz", c.s);
     }
-    if (c.s) el.style.setProperty("--sz", c.s);
   }
+  applyLayout();
 
-  const editWho = document.getElementById("editWho");
-  const sizeSlider = document.getElementById("sizeSlider");
+  const editWho = $("editWho");
+  const sizeSlider = $("sizeSlider");
 
-  document.getElementById("editLayout").addEventListener("click", () => {
+  $("editLayout").addEventListener("click", () => {
     settingsEl.classList.remove("open");
     EDIT.on = true;
     document.body.classList.add("editing");
     releaseAll();
     toast("Drag to move · tap to select · slider resizes", 4500);
   });
-  document.getElementById("editDone").addEventListener("click", () => {
+  $("editDone").addEventListener("click", () => {
     EDIT.on = false;
     document.body.classList.remove("editing");
     if (EDIT.sel) EDIT.sel.classList.remove("selected");
@@ -720,6 +1187,13 @@
     editWho.textContent = "Tap a control";
     saveLayout();
     toast("Layout saved", 1800);
+  });
+  $("resetLayout").addEventListener("click", () => {
+    layout = {};
+    saveLayout();
+    applyLayout();
+    settingsEl.classList.remove("open");
+    toast("Layout reset to default", 1800);
   });
 
   function selectControl(el) {
@@ -741,7 +1215,7 @@
     saveLayout();
   });
 
-  editables.forEach(el => {
+  editables.forEach((el) => {
     el.addEventListener("pointerdown", (e) => {
       if (!EDIT.on) return;
       e.preventDefault();

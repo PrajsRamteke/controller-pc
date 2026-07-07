@@ -46,5 +46,10 @@
     "sensitivity": 2.4,
     "scrollSensitivity": 0.15,
     "naturalScroll": true
+  },
+
+  "gyro": {
+    "_comment": "Gyro aiming (toggle on the phone in settings). Accumulated tilt degrees -> mouse pixels",
+    "sensitivity": 3
   }
 }

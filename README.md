@@ -72,10 +72,33 @@ RT as a fire button: most shooters fire on mouse click — nut-js supports
 `mouse.pressButton`, so wiring RT → left click is a 3-line change in
 `server.js` if you want it (ping me).
 
+## Features
+
+- **Local multiplayer** — up to 4 phones connect at once (P1–P4, each with its
+  own accent color). The extension exposes them as gamepads 0–3. P1's phone
+  drives keyboard/mouse mode and owns the shared touchpad/mouse.
+- **Gyro aiming** — toggle in ⚙ settings; tilt the phone to move the camera
+  (sent as mouse movement). Sensitivity slider on the phone, base multiplier
+  in `mapping.json` → `gyro.sensitivity`. iOS asks for motion permission.
+- **Profiles** — layout *and* button mapping saved per game, switchable in
+  settings. Edit the button mapping from the phone (no more hand-editing
+  `mapping.json`). Share a profile as a QR code: the other phone scans it,
+  the pad opens and imports it.
+- **Keyboard passthrough** — the ⌨ HUD button opens your phone keyboard and
+  types live into the Mac (chat, lobby names, passwords), with quick keys for
+  Enter/Esc/Tab/arrows.
+- **Connection quality** — live latency sparkline in the HUD, packet-loss
+  detection, and auto-throttling of stick updates on weak WiFi. The touchpad
+  light bar pulses **amber** when the connection is struggling.
+- **Haptic + sound themes** — distinct vibration patterns per button group
+  (triggers feel different from face buttons), Light/Medium/Heavy strength,
+  and optional synthesized UI clicks.
+
 ## Latency
 
-Expect ~10–30 ms on a decent WiFi network — the HUD at the top shows live
-round-trip latency. Keep phone and Mac on the same 5 GHz band for best feel.
+Expect ~10–30 ms on a decent WiFi network — the HUD shows live round-trip
+latency plus a sparkline of the last 30 seconds. Keep phone and Mac on the
+same 5 GHz band for best feel.
 
 ## Honest limitations
 
