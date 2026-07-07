@@ -1,0 +1,43 @@
+{
+  "_comment": "Map controller inputs to Mac keyboard keys. Valid key names: A-Z, Num0-Num9, Space, Enter, Escape, Tab, LeftShift, LeftControl, LeftAlt, LeftCmd, Up, Down, Left, Right, F1-F12, Comma, Period, Slash, Semicolon, Quote, Backslash, Minus, Equal, Grave, Backspace",
+
+  "buttons": {
+    "A": "Space",
+    "B": "LeftControl",
+    "X": "R",
+    "Y": "F",
+    "LB": "Q",
+    "RB": "E",
+    "LT": "LeftShift",
+    "RT": "Enter",
+    "L3": "C",
+    "R3": "V",
+    "VIEW": "Tab",
+    "MENU": "Escape",
+    "DPAD_UP": "Num1",
+    "DPAD_DOWN": "Num3",
+    "DPAD_LEFT": "Num4",
+    "DPAD_RIGHT": "Num2"
+  },
+
+  "leftStick": {
+    "_comment": "Analog stick converted to 8-way digital keys",
+    "mode": "keys",
+    "up": "W",
+    "down": "S",
+    "left": "A",
+    "right": "D",
+    "deadzone": 0.3
+  },
+
+  "rightStick": {
+    "_comment": "mode 'mouse' = camera look via mouse movement. mode 'keys' = arrow keys",
+    "mode": "mouse",
+    "sensitivity": 18,
+    "up": "Up",
+    "down": "Down",
+    "left": "Left",
+    "right": "Right",
+    "deadzone": 0.25
+  }
+}

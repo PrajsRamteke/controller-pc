@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>PAD//LINK</title>
+<style>
+  :root{
+    --bg:#0b0c0e;
+    --surface:#16181c;
+    --surface-hi:#1f2228;
+    --edge:#2b2f36;
+    --ink:#e8eaed;
+    --dim:#7a8088;
+    --green:#43c623;      /* connected / signature accent */
+    --a:#6dbe45; --b:#e0402f; --x:#3b6edf; --y:#f2c21b;
+    --press-glow: 0 0 22px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;touch-action:none}
+  html,body{width:100%;height:100%;overflow:hidden;overscroll-behavior:none}
+  body{
+    background:
+      radial-gradient(1200px 600px at 50% 120%, #14161a 0%, var(--bg) 60%),
+      var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,"SF Pro Display","Segoe UI",Roboto,system-ui,sans-serif;
+    position:fixed;inset:0;
+  }
+
+  /* ---- portrait rotate hint ---- */
+  #rotate{
+    position:fixed;inset:0;z-index:100;display:none;
+    background:var(--bg);
+    flex-direction:column;align-items:center;justify-content:center;gap:14px;
+    text-align:center;padding:24px;
+  }
+  #rotate .ico{font-size:44px;animation:tilt 1.6s ease-in-out infinite}
+  @keyframes tilt{0%,100%{transform:rotate(0)}50%{transform:rotate(-90deg)}}
+  @media (orientation:portrait){ #rotate{display:flex} }
+  @media (prefers-reduced-motion:reduce){ #rotate .ico{animation:none} *{transition:none!important} }
+
+  /* ---- layout grid ---- */
+  #pad{position:absolute;inset:0;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+
+  .abs{position:absolute}
+
+  /* ---- generic round button ---- */
+  .btn{
+    display:flex;align-items:center;justify-content:center;
+    border-radius:50%;
+    background:linear-gradient(180deg,var(--surface-hi),var(--surface));
+    border:1px solid var(--edge);
+    box-shadow:0 4px 10px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.05);
+    color:var(--ink);
+    font-weight:800;letter-spacing:.04em;
+    transition:transform .05s ease, box-shadow .08s ease;
+  }
+  .btn .sub{font-size:9px;font-weight:700;color:var(--dim);letter-spacing:.14em}
+  .btn.down{transform:scale(.92)}
+
+  /* triggers & bumpers */
+  .trig{width:17vmin;height:17vmin;font-size:4.2vmin}
+  .bump{width:13vmin;height:13vmin;font-size:3.6vmin}
+  .trig.down,.bump.down{box-shadow:var(--press-glow) rgba(67,198,35,.45), inset 0 1px 0 rgba(255,255,255,.05);border-color:var(--green)}
+
+  /* ABXY face buttons */
+  .face{width:14.5vmin;height:14.5vmin;font-size:6vmin;font-weight:900}
+  .face[data-k="A"]{color:var(--a)} .face[data-k="B"]{color:var(--b)}
+  .face[data-k="X"]{color:var(--x)} .face[data-k="Y"]{color:var(--y)}
+  .face[data-k="A"].down{box-shadow:var(--press-glow) rgba(109,190,69,.6);border-color:var(--a)}
+  .face[data-k="B"].down{box-shadow:var(--press-glow) rgba(224,64,47,.6);border-color:var(--b)}
+  .face[data-k="X"].down{box-shadow:var(--press-glow) rgba(59,110,223,.6);border-color:var(--x)}
+  .face[data-k="Y"].down{box-shadow:var(--press-glow) rgba(242,194,27,.6);border-color:var(--y)}
+
+  /* d-pad */
+  #dpad{width:34vmin;height:34vmin}
+  #dpad .arm{
+    position:absolute;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(180deg,var(--surface-hi),var(--surface));
+    border:1px solid var(--edge);color:var(--dim);font-size:4.6vmin;
+    box-shadow:0 4px 10px rgba(0,0,0,.5);
+    transition:transform .05s ease;
+  }
+  #dpad .arm.down{color:var(--green);border-color:var(--green);transform:scale(.94);box-shadow:var(--press-glow) rgba(67,198,35,.35)}
+  .arm.up1{left:33%;top:0;width:34%;height:36%;border-radius:24% 24% 8% 8%}
+  .arm.dn{left:33%;bottom:0;width:34%;height:36%;border-radius:8% 8% 24% 24%}
+  .arm.lf{left:0;top:33%;width:36%;height:34%;border-radius:24% 8% 8% 24%}
+  .arm.rt{right:0;top:33%;width:36%;height:34%;border-radius:8% 24% 24% 8%}
+
+  /* ---- analog sticks (signature element) ---- */
+  .stick{
+    width:32vmin;height:32vmin;border-radius:50%;
+    background:radial-gradient(circle at 50% 40%, #1a1d22, #101215 70%);
+    border:1px solid var(--edge);
+    box-shadow:inset 0 6px 18px rgba(0,0,0,.7), 0 2px 8px rgba(0,0,0,.5);
+    position:absolute;
+  }
+  .stick .ring{
+    position:absolute;inset:-3px;border-radius:50%;pointer-events:none;
+    background:conic-gradient(from var(--ang,0deg), rgba(67,198,35,var(--glow,0)) 0deg 60deg, transparent 90deg 360deg);
+    -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
+            mask:radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
+  }
+  .stick .thumb{
+    position:absolute;width:56%;height:56%;left:22%;top:22%;border-radius:50%;
+    background:
+      radial-gradient(circle at 50% 32%, #32363d, #1c1f24 65%),
+      #1c1f24;
+    border:1px solid #3a3f47;
+    box-shadow:0 8px 16px rgba(0,0,0,.65), inset 0 2px 3px rgba(255,255,255,.08);
+    display:flex;align-items:center;justify-content:center;
+    color:#565c66;font-size:8px;font-weight:800;letter-spacing:.2em;
+  }
+  .stick.active .thumb{border-color:var(--green);color:var(--green)}
+
+  /* ---- center cluster ---- */
+  .pill{
+    border-radius:50%;
+    width:9.5vmin;height:9.5vmin;font-size:3.4vmin;color:var(--dim);
+  }
+  .pill.down{color:var(--green);border-color:var(--green);box-shadow:var(--press-glow) rgba(67,198,35,.35)}
+
+  #hud{
+    position:absolute;left:50%;top:4%;transform:translateX(-50%);
+    display:flex;align-items:center;gap:10px;
+    background:rgba(22,24,28,.8);border:1px solid var(--edge);border-radius:99px;
+    padding:6px 16px;backdrop-filter:blur(8px);
+    font-size:11px;letter-spacing:.12em;font-weight:700;color:var(--dim);
+    text-transform:uppercase;
+  }
+  #dot{width:8px;height:8px;border-radius:50%;background:#e0402f;box-shadow:0 0 8px #e0402f}
+  #dot.on{background:var(--green);box-shadow:0 0 10px var(--green)}
+  #lat{color:var(--ink);font-variant-numeric:tabular-nums}
+
+  .tag{
+    position:absolute;font-size:9px;font-weight:800;letter-spacing:.22em;
+    color:#3a3f47;text-transform:uppercase;pointer-events:none;
+  }
+</style>
+</head>
+<body>
+
+<div id="rotate">
+  <div class="ico">📱</div>
+  <div style="font-weight:800;letter-spacing:.1em">ROTATE TO LANDSCAPE</div>
+  <div style="color:var(--dim);font-size:13px">PAD//LINK works in landscape only</div>
+</div>
+
+<div id="pad">
+  <!-- HUD -->
+  <div id="hud"><span id="dot"></span><span id="status">LINKING</span><span id="lat">— ms</span></div>
+
+  <!-- triggers / bumpers -->
+  <div class="btn trig abs" data-k="LT" style="left:2.5%;top:5%">LT</div>
+  <div class="btn bump abs" data-k="LB" style="left:14%;top:26%">LB</div>
+  <div class="btn trig abs" data-k="RT" style="right:2.5%;top:5%">RT</div>
+  <div class="btn bump abs" data-k="RB" style="right:14%;top:26%">RB</div>
+
+  <!-- d-pad -->
+  <div id="dpad" class="abs" style="left:4%;top:42%">
+    <div class="arm up1" data-k="DPAD_UP">▲</div>
+    <div class="arm dn"  data-k="DPAD_DOWN">▼</div>
+    <div class="arm lf"  data-k="DPAD_LEFT">◀</div>
+    <div class="arm rt"  data-k="DPAD_RIGHT">▶</div>
+  </div>
+
+  <!-- sticks -->
+  <div class="stick" id="stickL" style="left:24%;bottom:6%">
+    <div class="ring"></div><div class="thumb">MOVE</div>
+  </div>
+  <div class="stick" id="stickR" style="right:24%;bottom:6%">
+    <div class="ring"></div><div class="thumb">LOOK</div>
+  </div>
+
+  <!-- center cluster -->
+  <div class="btn pill abs" data-k="VIEW" style="left:50%;top:24%;transform:translateX(-160%)">⧉</div>
+  <div class="btn pill abs" data-k="MENU" style="left:50%;top:24%;transform:translateX(60%)">≡</div>
+  <div class="btn pill abs" data-k="L3" style="left:50%;top:50%;transform:translateX(-160%)"><span class="sub">L3</span></div>
+  <div class="btn pill abs" data-k="R3" style="left:50%;top:50%;transform:translateX(60%)"><span class="sub">R3</span></div>
+
+  <!-- ABXY -->
+  <div class="btn face abs" data-k="Y" style="right:12.5%;top:41%">Y</div>
+  <div class="btn face abs" data-k="X" style="right:21%;top:57%">X</div>
+  <div class="btn face abs" data-k="B" style="right:4%;top:57%">B</div>
+  <div class="btn face abs" data-k="A" style="right:12.5%;top:73%">A</div>
+
+  <div class="tag" style="left:5%;bottom:3%">PAD//LINK</div>
+</div>
+
+<script>
+(() => {
+  // ---------- websocket ----------
+  let ws, alive = false;
+  const dot = document.getElementById("dot");
+  const statusEl = document.getElementById("status");
+  const latEl = document.getElementById("lat");
+
+  function connect(){
+    ws = new WebSocket(`ws://${location.host}`);
+    ws.onopen = () => { alive = true; dot.classList.add("on"); statusEl.textContent = "LINKED"; buzz(30); };
+    ws.onclose = () => { alive = false; dot.classList.remove("on"); statusEl.textContent = "RETRY"; latEl.textContent = "— ms"; setTimeout(connect, 1200); };
+    ws.onerror = () => ws.close();
+    ws.onmessage = (e) => {
+      try {
+        const m = JSON.parse(e.data);
+        if (m.t === "pong") latEl.textContent = (performance.now() - m.id).toFixed(0) + " ms";
+      } catch {}
+    };
+  }
+  connect();
+  setInterval(() => { if (alive) ws.send(JSON.stringify({t:"ping", id: performance.now()})); }, 2000);
+
+  const send = (o) => { if (alive) ws.send(JSON.stringify(o)); };
+  const buzz = (ms=12) => { if (navigator.vibrate) navigator.vibrate(ms); };
+
+  // ---------- fullscreen + wake lock on first touch ----------
+  let booted = false;
+  document.body.addEventListener("pointerdown", async () => {
+    if (booted) return; booted = true;
+    try { await document.documentElement.requestFullscreen({navigationUI:"hide"}); } catch {}
+    try { await screen.orientation.lock("landscape"); } catch {}
+    try { await navigator.wakeLock.request("screen"); } catch {}
+  }, {capture:true});
+
+  // ---------- buttons (multi-touch safe) ----------
+  document.querySelectorAll("[data-k]").forEach(el => {
+    const k = el.dataset.k;
+    const down = (e) => {
+      e.preventDefault();
+      el.setPointerCapture(e.pointerId);
+      el.classList.add("down");
+      send({t:"b", k, v:1});
+      buzz();
+    };
+    const up = () => {
+      el.classList.remove("down");
+      send({t:"b", k, v:0});
+    };
+    el.addEventListener("pointerdown", down);
+    el.addEventListener("pointerup", up);
+    el.addEventListener("pointercancel", up);
+    el.addEventListener("lostpointercapture", up);
+  });
+
+  // ---------- analog sticks ----------
+  function makeStick(el, id){
+    const thumb = el.querySelector(".thumb");
+    const ring = el.querySelector(".ring");
+    let pid = null, cx = 0, cy = 0, radius = 1;
+    let lastSent = 0, lx = 0, ly = 0;
+
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      cx = r.left + r.width/2; cy = r.top + r.height/2;
+      radius = r.width/2 * 0.72;
+    };
+
+    const apply = (x, y) => {
+      thumb.style.transform = `translate(${x*radius}px, ${y*radius}px)`;
+      const mag = Math.hypot(x, y);
+      ring.style.setProperty("--glow", Math.min(1, mag).toFixed(2));
+      ring.style.setProperty("--ang", (Math.atan2(y, x)*180/Math.PI + 60) + "deg");
+      const now = performance.now();
+      if (now - lastSent > 33 || (x===0 && y===0)) {
+        if (x !== lx || y !== ly) { send({t:"s", s:id, x:+x.toFixed(3), y:+y.toFixed(3)}); lx=x; ly=y; }
+        lastSent = now;
+      }
+    };
+
+    el.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      if (pid !== null) return;
+      pid = e.pointerId;
+      el.setPointerCapture(pid);
+      el.classList.add("active");
+      measure();
+      move(e);
+      buzz(8);
+    });
+
+    const move = (e) => {
+      if (e.pointerId !== pid) return;
+      let dx = (e.clientX - cx) / radius;
+      let dy = (e.clientY - cy) / radius;
+      const mag = Math.hypot(dx, dy);
+      if (mag > 1) { dx /= mag; dy /= mag; }
+      apply(dx, dy);
+    };
+
+    const end = (e) => {
+      if (e.pointerId !== pid) return;
+      pid = null;
+      el.classList.remove("active");
+      apply(0, 0);
+      send({t:"s", s:id, x:0, y:0});
+    };
+
+    el.addEventListener("pointermove", move);
+    el.addEventListener("pointerup", end);
+    el.addEventListener("pointercancel", end);
+  }
+
+  makeStick(document.getElementById("stickL"), "L");
+  makeStick(document.getElementById("stickR"), "R");
+
+  // release all inputs if page hidden (call/app switch) — no stuck keys
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      send({t:"s", s:"L", x:0, y:0});
+      send({t:"s", s:"R", x:0, y:0});
+      document.querySelectorAll("[data-k].down").forEach(el => {
+        el.classList.remove("down");
+        send({t:"b", k: el.dataset.k, v:0});
+      });
+    }
+  });
+})();
+</script>
+</body>
+</html>
