@@ -71,6 +71,9 @@
   }
   body.haslot #pnum{display:inline-block}
   #lat{color:var(--ink);font-variant-numeric:tabular-nums;min-width:48px;text-align:right}
+  #conn{display:none;color:var(--faint);font-size:10px}
+  #conn.show{display:inline}
+  #conn.wired{color:var(--link)}
   #spark{width:46px;height:14px;flex:none;opacity:.9}
   #mode{color:var(--faint);border-left:1px solid var(--edge);padding-left:10px}
   #mode.gp{color:var(--link)}
@@ -332,6 +335,7 @@
   }
   body.editing #editbar{display:flex}
   #editbar .who{font-size:11px;font-weight:800;letter-spacing:.12em;color:var(--link);min-width:74px;text-transform:uppercase}
+  #editbar .pct{font-size:12px;font-weight:800;color:var(--ink);min-width:44px;text-align:right;font-variant-numeric:tabular-nums}
   #editbar input[type=range]{width:150px;touch-action:auto;accent-color:var(--link)}
   #editbar button{
     padding:8px 12px;border-radius:10px;border:1px solid var(--edge);
@@ -361,7 +365,7 @@
 <div id="pad">
   <!-- HUD -->
   <div id="hud">
-    <span id="dot"></span><span id="pnum">P1</span><span id="status">LINKING</span>
+    <span id="dot"></span><span id="pnum">P1</span><span id="status">LINKING</span><span id="conn"></span>
     <canvas id="spark" width="46" height="14"></canvas>
     <span id="lat">— ms</span>
     <span id="mode">KEYS</span>
@@ -511,6 +515,7 @@
 <div id="editbar">
   <span class="who" id="editWho">Tap a control</span>
   <input type="range" id="sizeSlider" min="0.6" max="1.8" step="0.05" value="1" disabled>
+  <span class="pct" id="sizePct">—</span>
   <button id="editDone">Done</button>
 </div>
 
@@ -647,6 +652,13 @@
           latEl.textContent = rtt.toFixed(0) + " ms";
         }
         else if (m.t === "player") setPlayer(m.i);
+        else if (m.t === "link") {
+          const c = $("conn");
+          c.textContent = m.wired ? "USB" : "WIFI";
+          c.classList.add("show");
+          c.classList.toggle("wired", !!m.wired);
+          if (m.wired) toast(`Wired link (${m.n || "USB"}) — lowest latency`, 2500);
+        }
         else if (m.t === "mode") {
           modeEl.textContent = m.g ? "GAMEPAD" : "KEYS";
           modeEl.classList.toggle("gp", !!m.g);
@@ -1256,6 +1268,7 @@
     EDIT.sel = null;
     sizeSlider.disabled = true;
     editWho.textContent = "Tap a control";
+    $("sizePct").textContent = "—";
     saveLayout();
     toast("Layout saved", 1800);
   });
@@ -1275,13 +1288,16 @@
     editWho.textContent = NICE[cid] || cid.replace(/_/g, " ");
     sizeSlider.disabled = false;
     sizeSlider.value = layout[cid]?.s || 1;
+    sizePct.textContent = Math.round(+sizeSlider.value * 100) + "%";
   }
 
+  const sizePct = $("sizePct");
   sizeSlider.addEventListener("input", () => {
     if (!EDIT.sel) return;
     const cid = EDIT.sel.dataset.cid;
     const s = +sizeSlider.value;
     EDIT.sel.style.setProperty("--sz", s);
+    sizePct.textContent = Math.round(s * 100) + "%";
     layout[cid] = { ...layout[cid], s };
     saveLayout();
   });

@@ -17,6 +17,7 @@ const http = require("http");
 const os = require("os");
 const path = require("path");
 const fs = require("fs");
+const { execFile } = require("child_process");
 const { WebSocketServer } = require("ws");
 const qrcode = require("qrcode-terminal");
 const QRCode = require("qrcode");
@@ -197,7 +198,9 @@ app.get("/qr", async (req, res) => {
   const d = String(req.query.d || "");
   if (!d || d.length > 6000) return res.status(400).send("bad payload");
   try {
-    const url = `http://${lanIPs()[0] || "localhost"}:${PORT}/#p=${encodeURIComponent(d)}`;
+    // use the host the phone itself reached us on, so the QR works on its network
+    const host = req.get("host") || `${lanIPs()[0] || "localhost"}:${PORT}`;
+    const url = `http://${host}/#p=${encodeURIComponent(d)}`;
     const svg = await QRCode.toString(url, { type: "svg", margin: 1, width: 480 });
     res.type("image/svg+xml").send(svg);
   } catch (e) {
@@ -261,6 +264,18 @@ wss.on("connection", (ws, req) => {
   mouseLoop();
   ws.send(JSON.stringify({ t: "player", i: slot }));
   ws.send(JSON.stringify({ t: "mode", g: gamepadMode() }));
+  // tell the phone which link it arrived on (wifi vs usb/tethered)
+  {
+    const local = (req.socket.localAddress || "").replace(/^::ffff:/, "");
+    let linkName = "WiFi", wired = false;
+    if (local === "127.0.0.1" || local === "::1") { wired = true; linkName = "USB (adb)"; }
+    else if (ipInfo[local]) {
+      linkName = ipInfo[local].port;
+      wired = isWiredName(linkName);
+    }
+    ws.send(JSON.stringify({ t: "link", wired, n: linkName }));
+    if (wired && slot !== -1) console.log(`   ↳ P${slot + 1} is on a wired link (${linkName})`);
+  }
   if (slot !== -1) sendPlayerState(slot);
 
   const isP1 = () => slot === 0;
@@ -382,16 +397,111 @@ function lanIPs() {
   return out;
 }
 
+// ---- wired support: interface watching + labels ------------------------------
+// USB tethering (iPhone Personal Hotspot / Android USB tethering) shows up as
+// a new network interface. We watch for it, label it via networksetup, and
+// print a fresh QR so the phone can jump onto the cable.
+let portNames = {};        // device (en0) -> "Wi-Fi", "iPhone USB", ...
+const ipInfo = {};         // ip -> { iface, port }
+const knownIPs = new Set();
+const isWiredName = (n) => !/wi-?fi|airport/i.test(n || "");
+
+function refreshPortNames(cb) {
+  execFile("networksetup", ["-listallhardwareports"], (err, out) => {
+    if (!err && out) {
+      const map = {};
+      let port = null;
+      for (const line of out.split("\n")) {
+        const p = line.match(/^Hardware Port:\s*(.+)/);
+        const d = line.match(/^Device:\s*(.+)/);
+        if (p) port = p[1].trim();
+        else if (d && port) map[d[1].trim()] = port;
+      }
+      portNames = map;
+    }
+    if (cb) cb();
+  });
+}
+
+function currentIPs() {
+  const out = {};
+  for (const [iface, addrs] of Object.entries(os.networkInterfaces())) {
+    for (const a of addrs || []) {
+      if (a.family === "IPv4" && !a.internal) out[a.address] = iface;
+    }
+  }
+  return out;
+}
+
+function scanInterfaces(announce) {
+  const ips = currentIPs();
+  for (const ip of [...knownIPs]) {
+    if (!ips[ip]) { knownIPs.delete(ip); delete ipInfo[ip]; }
+  }
+  const added = Object.keys(ips).filter((ip) => !knownIPs.has(ip));
+  if (added.length === 0) return;
+  refreshPortNames(() => {
+    for (const ip of added) {
+      knownIPs.add(ip);
+      const iface = ips[ip];
+      const port = portNames[iface] || iface;
+      ipInfo[ip] = { iface, port };
+      if (announce) {
+        const url = `http://${ip}:${PORT}`;
+        console.log(`\n🔗 New connection path: ${url}  (${port})`);
+        if (isWiredName(port)) {
+          console.log("   Looks wired/tethered — scan to switch to the cable:\n");
+          qrcode.generate(url, { small: true });
+        }
+      }
+    }
+  });
+}
+setInterval(() => scanInterfaces(true), 3000);
+
+// ---- wired support: automatic adb reverse tunnel (Android + USB debugging) ---
+// If adb is installed and a phone is plugged in with USB debugging on, expose
+// this server on the phone's own localhost so the cable carries the input.
+const adbAnnounced = new Set();
+function setupAdb() {
+  execFile("adb", ["devices"], (err, out) => {
+    if (err || !out) return; // adb not installed — that's fine
+    const serials = out.split("\n").slice(1)
+      .map((l) => l.trim().split(/\s+/))
+      .filter((p) => p[1] === "device")
+      .map((p) => p[0]);
+    for (const s of serials) {
+      execFile("adb", ["-s", s, "reverse", `tcp:${PORT}`, `tcp:${PORT}`], (e) => {
+        if (!e && !adbAnnounced.has(s)) {
+          adbAnnounced.add(s);
+          console.log(`🔌 USB (adb): tunnel ready — open http://localhost:${PORT} on phone ${s}`);
+        }
+      });
+    }
+    for (const s of [...adbAnnounced]) if (!serials.includes(s)) adbAnnounced.delete(s);
+  });
+}
+setInterval(setupAdb, 5000);
+setupAdb();
+
 server.listen(PORT, () => {
   const ips = lanIPs();
   const url = `http://${ips[0] || "localhost"}:${PORT}`;
   console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   console.log("  PHONE GAMEPAD server running");
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  ips.forEach((ip) => console.log(`  →  http://${ip}:${PORT}`));
-  console.log("\n  Open on your phone (same WiFi), or scan:\n");
+  scanInterfaces(false); // seed the interface table without re-announcing
+  refreshPortNames(() => {
+    const labeled = currentIPs();
+    Object.entries(labeled).forEach(([ip, iface]) => {
+      console.log(`  →  http://${ip}:${PORT}  (${portNames[iface] || iface})`);
+    });
+  });
+  console.log("\n  Open on your phone (same WiFi or USB tethering), or scan:\n");
   qrcode.generate(url, { small: true });
   console.log("  Up to 4 phones can join (P1 drives keyboard/mouse mode).");
+  console.log("  Wired: plug the phone in + enable USB tethering / Personal");
+  console.log("  Hotspot (or Android USB debugging for an automatic tunnel).");
   console.log("  If keys don't fire: grant Accessibility permission");
   console.log("  to your terminal in System Settings → Privacy.\n");
 });

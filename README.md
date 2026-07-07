@@ -94,11 +94,32 @@ RT as a fire button: most shooters fire on mouse click — nut-js supports
   (triggers feel different from face buttons), Light/Medium/Heavy strength,
   and optional synthesized UI clicks.
 
+## Wired connection (USB — lowest latency)
+
+The controller runs over any network path, and a USB cable can be one. The
+server watches for new interfaces and prints a fresh QR when a cable shows
+up; the phone HUD shows **USB** instead of WIFI when it's on the wire
+(~1–5 ms instead of 10–30 ms).
+
+Pick whichever fits your phone:
+
+- **iPhone**: plug into the Mac → enable **Personal Hotspot** → scan the new
+  QR the server prints. Works out of the box.
+- **Android 14+ (macOS 13+)**: plug in → Settings → Hotspot & tethering →
+  **USB tethering** → scan the new QR.
+- **Any Android with USB debugging**: just plug in — if `adb` is installed
+  the server auto-creates a tunnel and prints it; open
+  `http://localhost:8642` on the phone.
+
+Bluetooth fallback (no WiFi around): pair the phone with the Mac and enable
+**Bluetooth tethering** on the phone — same URL trick, no code needed. Note
+it's *slower* than WiFi (~30–60 ms), so only use it when there's no network.
+
 ## Latency
 
-Expect ~10–30 ms on a decent WiFi network — the HUD shows live round-trip
-latency plus a sparkline of the last 30 seconds. Keep phone and Mac on the
-same 5 GHz band for best feel.
+Expect ~10–30 ms on a decent WiFi network (~1–5 ms wired) — the HUD shows
+live round-trip latency plus a sparkline of the last 30 seconds. On WiFi,
+keep phone and Mac on the same 5 GHz band for best feel.
 
 ## Honest limitations
 
