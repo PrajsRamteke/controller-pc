@@ -25,6 +25,10 @@
     --warn:#ff5d5d;          /* light-bar: lost */
     --amber:#ffb020;         /* light-bar: weak signal */
     --a:#79d055; --b:#ff5347; --x:#5b86ff; --y:#ffcb2e;
+    /* themeable surfaces (skins override these) */
+    --stick1:#1b2130; --stick2:#11151e;
+    --thumb1:#333b4d; --thumb2:#1d2230; --thumb-edge:#3d475c; --thumb-ink:#5b6577;
+    --pad1:#141926; --pad2:#10141d; --pad1-hi:#182031; --pad2-hi:#131824;
   }
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;touch-action:none}
   html,body{width:100%;height:100%;overflow:hidden;overscroll-behavior:none}
@@ -135,7 +139,7 @@
   /* ---- analog sticks ---- */
   .stick{
     width:calc(30vmin * var(--sz,1));height:calc(30vmin * var(--sz,1));border-radius:50%;
-    background:radial-gradient(circle at 50% 40%, #1b2130, #11151e 70%);
+    background:radial-gradient(circle at 50% 40%, var(--stick1), var(--stick2) 70%);
     border:1px solid var(--edge);
     box-shadow:inset 0 6px 18px rgba(0,0,0,.7), 0 2px 8px rgba(0,0,0,.5);
     position:absolute;
@@ -148,11 +152,11 @@
   }
   .stick .thumb{
     position:absolute;width:56%;height:56%;left:22%;top:22%;border-radius:50%;
-    background:radial-gradient(circle at 50% 32%, #333b4d, #1d2230 65%), #1d2230;
-    border:1px solid #3d475c;
+    background:radial-gradient(circle at 50% 32%, var(--thumb1), var(--thumb2) 65%), var(--thumb2);
+    border:1px solid var(--thumb-edge);
     box-shadow:0 8px 16px rgba(0,0,0,.65), inset 0 2px 3px rgba(255,255,255,.08);
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
-    color:#5b6577;font-size:9px;font-weight:800;letter-spacing:.2em;
+    color:var(--thumb-ink);font-size:9px;font-weight:800;letter-spacing:.2em;
   }
   .stick .thumb .key{font-size:7px;letter-spacing:.15em}
   .stick.active .thumb{border-color:var(--link);color:var(--link)}
@@ -163,7 +167,7 @@
     border-radius:18px;
     background:
       radial-gradient(circle at 50% 0%, rgba(255,255,255,.03), transparent 60%),
-      linear-gradient(180deg,#141926,#10141d);
+      linear-gradient(180deg,var(--pad1),var(--pad2));
     border:1px solid var(--edge);
     box-shadow:inset 0 2px 10px rgba(0,0,0,.5);
     overflow:hidden;
@@ -193,13 +197,13 @@
     position:absolute;left:0;right:0;bottom:8px;text-align:center;pointer-events:none;
     font-size:8px;font-weight:800;letter-spacing:.3em;color:var(--faint);text-transform:uppercase;
   }
-  #touchpad.touching{background:linear-gradient(180deg,#182031,#131824)}
+  #touchpad.touching{background:linear-gradient(180deg,var(--pad1-hi),var(--pad2-hi))}
 
   /* ---- Lock Mouse: mini look-touchpad that replaces the right stick ---- */
   #lookpad{
     width:calc(32vmin * var(--sz,1));height:calc(32vmin * var(--sz,1));
     border-radius:16px;
-    background:linear-gradient(180deg,#141926,#10141d);
+    background:linear-gradient(180deg,var(--pad1),var(--pad2));
     border:1px solid var(--edge);
     box-shadow:inset 0 2px 10px rgba(0,0,0,.5);
     overflow:hidden;display:none;
@@ -209,7 +213,7 @@
   #lookpad.touching{
     border-color:var(--link);
     box-shadow:0 0 16px rgba(var(--link-rgb),.35), inset 0 2px 10px rgba(0,0,0,.5);
-    background:linear-gradient(180deg,#182031,#131824);
+    background:linear-gradient(180deg,var(--pad1-hi),var(--pad2-hi));
   }
   #lookpad .anchor{
     position:absolute;width:72px;height:72px;border-radius:50%;pointer-events:none;
@@ -287,6 +291,105 @@
   }
   body.rgb .tag, body.rgb #touchpad .lbl, body.rgb #lookpad .lbl{color:rgba(var(--link-rgb),.65)}
   body.rgb .pill{border-color:rgba(var(--link-rgb),.45)}
+
+  /* ---- rumble shockwave — game rumble ripples across the whole pad ---- */
+  .shock{
+    position:fixed;left:50%;top:50%;z-index:40;pointer-events:none;
+    width:46vmax;height:46vmax;border-radius:50%;
+    border:3px solid rgba(var(--link-rgb),.85);
+    box-shadow:0 0 42px rgba(var(--link-rgb),.5), inset 0 0 36px rgba(var(--link-rgb),.35);
+    transform:translate(-50%,-50%) scale(.12);opacity:0;
+    animation:shockwave var(--shock-d,500ms) cubic-bezier(.15,.65,.35,1) forwards;
+  }
+  @keyframes shockwave{
+    0%{opacity:var(--shock-o,.8);transform:translate(-50%,-50%) scale(.12)}
+    100%{opacity:0;transform:translate(-50%,-50%) scale(var(--shock-s,1))}
+  }
+
+  /* ---- boot-up light sequence — power-on sweep across the controls ---- */
+  body.boot .btn, body.boot .stick, body.boot #touchpad, body.boot #lookpad{
+    animation:bootflick .55s ease-out both;animation-delay:var(--bd,0s);
+  }
+  @keyframes bootflick{
+    0%{filter:brightness(.55)}
+    25%{filter:brightness(2.4) drop-shadow(0 0 16px rgba(var(--link-rgb),.9));border-color:var(--link)}
+    45%{filter:brightness(.85)}
+    65%{filter:brightness(1.7) drop-shadow(0 0 10px rgba(var(--link-rgb),.55))}
+    100%{filter:brightness(1)}
+  }
+  body.boot.linked #touchpad::before{animation:lbpulse 1.1s ease-in-out 2} /* light bar breathes awake */
+  body.bootoff .btn, body.bootoff .stick, body.bootoff #touchpad, body.bootoff #lookpad{
+    animation:bootflickoff .5s ease-in both;animation-delay:var(--bd,0s);
+  }
+  @keyframes bootflickoff{
+    0%{filter:brightness(1)}
+    30%{filter:brightness(2) drop-shadow(0 0 14px rgba(255,93,93,.85))}
+    65%{filter:brightness(.4)}
+    100%{filter:brightness(1)}
+  }
+
+  /* ---- theme skins (⚙ settings → Theme, saved per profile) ---- */
+  body[data-theme="dualsense"]{
+    --bg:#dfe3ec;--surface:#f1f3f8;--surface-hi:#ffffff;--edge:#b6bed2;
+    --ink:#232a3a;--dim:#68738a;--faint:#9aa4ba;
+    --stick1:#ffffff;--stick2:#d5dbe8;--thumb1:#f6f8fc;--thumb2:#ccd3e2;--thumb-edge:#a8b2c8;--thumb-ink:#7c8699;
+    --pad1:#eef1f7;--pad2:#dde2ec;--pad1-hi:#e0eaff;--pad2-hi:#d0dcf4;
+    --a:#4fb944;--b:#e6483c;--x:#3d6ef2;--y:#e8ae12;
+  }
+  body[data-theme="dualsense"] .btn{box-shadow:0 4px 10px rgba(40,52,80,.25), inset 0 1px 0 #fff}
+  body[data-theme="cyberpunk"]{
+    --bg:#0a0a0e;--surface:#131318;--surface-hi:#1c1c24;--edge:#4a4420;
+    --ink:#f7e025;--dim:#9a9155;--faint:#4a4630;
+    --stick1:#1a1a22;--stick2:#0e0e13;--thumb1:#26261c;--thumb2:#15150e;--thumb-edge:#5a5325;--thumb-ink:#8a8455;
+    --pad1:#131318;--pad2:#0d0d11;--pad1-hi:#1d1d14;--pad2-hi:#14140d;
+    --a:#00f0ff;--b:#ff003c;--x:#f7e025;--y:#00ff9f;
+  }
+  body[data-theme="cyberpunk"] #pad{animation:cpglitch 7s steps(1) infinite}
+  @keyframes cpglitch{
+    0%,94%,100%{transform:none;filter:none}
+    94.5%{transform:translateX(2px);filter:hue-rotate(35deg) saturate(1.6)}
+    95.5%{transform:translateX(-2px) skewX(.4deg)}
+    96.5%{transform:none;filter:none}
+  }
+  body[data-theme="vaporwave"]{
+    --bg:#1a1033;--surface:#241847;--surface-hi:#30205c;--edge:#4d3689;
+    --ink:#ffe9f9;--dim:#a88fd0;--faint:#5f4b96;
+    --stick1:#312057;--stick2:#1d1240;--thumb1:#43307a;--thumb2:#251853;--thumb-edge:#5d46a0;--thumb-ink:#9c86cc;
+    --pad1:#241847;--pad2:#1a1038;--pad1-hi:#2f1e5c;--pad2-hi:#221545;
+    --a:#01cdfe;--b:#ff71ce;--x:#b967ff;--y:#fffb96;
+    background:linear-gradient(180deg,#160d2e 0%,#2b1653 55%,#6b2472 100%);
+  }
+  body[data-theme="vaporwave"]::before{ /* neon grid horizon */
+    content:"";position:fixed;left:-20%;right:-20%;bottom:0;height:48%;pointer-events:none;
+    background:
+      repeating-linear-gradient(90deg, rgba(1,205,254,.28) 0 1px, transparent 1px 58px),
+      repeating-linear-gradient(0deg, rgba(255,113,206,.30) 0 1px, transparent 1px 32px),
+      linear-gradient(transparent, rgba(255,113,206,.16));
+    transform:perspective(320px) rotateX(58deg);transform-origin:50% 100%;
+  }
+  body[data-theme="oled"]{
+    --bg:#000;--surface:#000;--surface-hi:#050507;--edge:#2b3240;
+    --ink:#d7dce6;--dim:#6b7382;--faint:#333a46;
+    --stick1:#050507;--stick2:#000;--thumb1:#0c0e13;--thumb2:#000;--thumb-edge:#333c4d;--thumb-ink:#5b6577;
+    --pad1:#020203;--pad2:#000;--pad1-hi:#070a10;--pad2-hi:#020305;
+  }
+  body[data-theme="oled"] .btn{box-shadow:none;background:#000}
+  body[data-theme="oled"] .stick{box-shadow:inset 0 0 0 1px #10141c}
+  body[data-theme="crt"]{
+    --bg:#020a04;--surface:#04140a;--surface-hi:#082012;--edge:#12472a;
+    --ink:#33ff66;--dim:#22aa4a;--faint:#0f5c2a;
+    --stick1:#06170c;--stick2:#020a05;--thumb1:#0a2413;--thumb2:#041208;--thumb-edge:#1a5c33;--thumb-ink:#22aa4a;
+    --pad1:#04140a;--pad2:#020c06;--pad1-hi:#07200f;--pad2-hi:#041408;
+    --a:#66ff99;--b:#33ff66;--x:#22cc55;--y:#99ffbb;
+  }
+  body[data-theme="crt"]::after{ /* scanlines + phosphor flicker over everything */
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:200;
+    background:
+      repeating-linear-gradient(0deg, rgba(0,0,0,.24) 0 1px, transparent 1px 3px),
+      radial-gradient(120% 90% at 50% 50%, transparent 60%, rgba(0,20,6,.55) 100%);
+    animation:crtflicker 4s steps(1) infinite;
+  }
+  @keyframes crtflicker{0%,96%,100%{opacity:1}97%{opacity:.82}98%{opacity:1}99%{opacity:.9}}
 
   /* ---- overlay panels (settings / mapping / QR) ---- */
   .overlay{
@@ -521,6 +624,17 @@
       <label class="switch"><input type="checkbox" id="sndToggle"><span class="knob"></span></label>
     </div>
     <div class="row">
+      <span>Theme<span class="hint">Skin for the whole pad — saved with the active profile</span></span>
+      <select id="themeSel">
+        <option value="midnight" selected>Midnight</option>
+        <option value="dualsense">DualSense</option>
+        <option value="cyberpunk">Cyberpunk</option>
+        <option value="vaporwave">Vaporwave</option>
+        <option value="oled">OLED Stealth</option>
+        <option value="crt">Retro CRT</option>
+      </select>
+    </div>
+    <div class="row">
       <span>RGB lighting<span class="hint">Full rainbow cycle — buttons, sticks, light bar, everything</span></span>
       <label class="switch"><input type="checkbox" id="rgbToggle"><span class="knob"></span></label>
     </div>
@@ -633,7 +747,7 @@
       if (json && json.name) {
         let name = String(json.name).slice(0, 24);
         while (store.profiles[name]) name += "+";
-        store.profiles[name] = { layout: json.layout || {}, buttons: json.buttons || null };
+        store.profiles[name] = { layout: json.layout || {}, buttons: json.buttons || null, theme: json.theme || null };
         store.active = name;
         saveStore();
         setTimeout(() => toast(`Profile "${name}" imported`, 3000), 600);
@@ -703,7 +817,7 @@
     if (i < 0) { pnumEl.textContent = "FULL"; document.body.classList.add("haslot"); return; }
     curSlot = i;
     const [c, rgb] = PCOLORS[i] || PCOLORS[0];
-    if (!rgbTimer) {
+    if (!rgbTimer && !THEMES[curTheme]?.accent) { // RGB cycle / theme accent outrank player color
       document.documentElement.style.setProperty("--link", c);
       document.documentElement.style.setProperty("--link-rgb", rgb);
     }
@@ -751,10 +865,69 @@
         rt.removeProperty(v);
         rt.removeProperty(v + "-rgb");
       }
-      if (curSlot >= 0) setPlayer(curSlot); // restore this player's accent color
+      applyTheme(curTheme); // restore the theme accent or this player's color
     }
   }
   if (CFG.rgb) setRGB(true);
+
+  // ============ theme skins — restyle the pad via the CSS variables ============
+  // Surfaces come from body[data-theme=...] rules; a theme with `accent` also
+  // owns --link (otherwise the player slot color keeps driving it).
+  const THEMES = {
+    midnight: {},
+    dualsense: {},
+    cyberpunk: { accent: ["#f7e025", "247,224,37"] },
+    vaporwave: { accent: ["#ff71ce", "255,113,206"] },
+    oled: {},
+    crt: { accent: ["#33ff66", "51,255,102"] },
+  };
+  let curTheme = "midnight";
+  function applyTheme(name) {
+    if (!THEMES[name]) name = "midnight";
+    curTheme = name;
+    document.body.dataset.theme = name;
+    if (!rgbTimer) { // RGB mode owns the accent while it runs
+      const acc = THEMES[name].accent;
+      const rt = document.documentElement.style;
+      if (acc) {
+        rt.setProperty("--link", acc[0]);
+        rt.setProperty("--link-rgb", acc[1]);
+      } else {
+        rt.removeProperty("--link");
+        rt.removeProperty("--link-rgb");
+        if (curSlot >= 0) setPlayer(curSlot);
+      }
+    }
+  }
+  applyTheme(profile().theme || "midnight");
+
+  // ============ rumble shockwave + boot-up light sequence ============
+  function shockwave(mag) {
+    if (document.querySelectorAll(".shock").length > 3) return; // don't stack a storm
+    const el = document.createElement("div");
+    el.className = "shock";
+    el.style.setProperty("--shock-o", (0.25 + mag * 0.6).toFixed(2));
+    el.style.setProperty("--shock-s", (0.55 + mag * 0.55).toFixed(2));
+    el.style.setProperty("--shock-d", Math.round(380 + mag * 340) + "ms");
+    document.body.appendChild(el);
+    el.addEventListener("animationend", () => el.remove());
+  }
+
+  // power-on sweep left→right on connect; reverse red flicker on signal lost
+  let linkLostAt = 0;
+  function bootWave(off) {
+    const els = document.querySelectorAll("[data-k], .stick, #touchpad, #lookpad");
+    const w = Math.max(1, innerWidth);
+    for (const el of els) {
+      const r = el.getBoundingClientRect();
+      const frac = Math.min(1, Math.max(0, (r.left + r.width / 2) / w));
+      el.style.setProperty("--bd", ((off ? 1 - frac : frac) * 0.6).toFixed(3) + "s");
+    }
+    document.body.classList.remove("boot", "bootoff"); // restart cleanly if mid-sequence
+    void document.body.offsetWidth;                    // reflow so the animations re-trigger
+    document.body.classList.add(off ? "bootoff" : "boot");
+    setTimeout(() => document.body.classList.remove(off ? "bootoff" : "boot"), off ? 1300 : 2600);
+  }
 
   // remember every address the server was reached on — when the installed
   // app launches from the offline cache (or the Mac's IP changed) we can
@@ -780,6 +953,8 @@
       hostTry = 0;
       rememberHost(host);
       setLink("linked", "LINKED");
+      // console-style power-on — skipped on quick blips so flaky WiFi doesn't strobe
+      if (!linkLostAt || performance.now() - linkLostAt > 2500) bootWave(false);
       buzz(30);
       sendRemap(); // apply the active profile's button mapping server-side
     };
@@ -787,6 +962,7 @@
       const hadLink = alive;
       alive = false;
       hostTry = hadLink ? 0 : hostTry + 1; // live drop: retry same host; never linked: try the next one
+      if (hadLink) { linkLostAt = performance.now(); bootWave(true); } // power-down sweep
       setLink("lost", "RETRY");
       latEl.textContent = "— ms";
       document.body.classList.remove("weak", "haslot");
@@ -815,7 +991,11 @@
           modeEl.classList.toggle("gp", !!m.g);
         }
         else if (m.t === "rumble") {
-          if (CFG.vib && navigator.vibrate && (m.m ?? 1) > 0.05) navigator.vibrate(Math.min(1000, m.d || 100));
+          const mag = Math.min(1, m.m ?? 1);
+          if (mag > 0.05) {
+            if (CFG.vib && navigator.vibrate) navigator.vibrate(Math.min(1000, m.d || 100));
+            shockwave(mag); // explosions ripple through the pad
+          }
         }
       } catch {}
     };
@@ -1362,6 +1542,14 @@
   const gyroToggle = $("gyroToggle"), gyroSens = $("gyroSens"), lockToggle = $("lockToggle");
   const lookModeSel = $("lookModeSel"), lookSensR = $("lookSensR"), stickCurveR = $("stickCurveR");
   const rgbToggle = $("rgbToggle"), rgbSpeedR = $("rgbSpeed");
+  const themeSel = $("themeSel");
+  themeSel.value = curTheme;
+  themeSel.addEventListener("change", () => {
+    profile().theme = themeSel.value;
+    saveStore();
+    applyTheme(themeSel.value);
+    fx("ui");
+  });
   rgbToggle.checked = CFG.rgb;
   rgbSpeedR.value = CFG.rgbSpeed;
   vibToggle.checked = CFG.vib;
@@ -1446,6 +1634,8 @@
     applyLayout();
     renderKeycaps();
     sendRemap();
+    applyTheme(profile().theme || "midnight");
+    themeSel.value = curTheme;
     toast(`Profile: ${name}`, 1600);
   }
   profSel.addEventListener("change", () => activateProfile(profSel.value));
@@ -1453,7 +1643,7 @@
     const name = (prompt("New profile name (copies current):") || "").trim().slice(0, 24);
     if (!name) return;
     if (store.profiles[name]) { toast("That name already exists"); return; }
-    store.profiles[name] = JSON.parse(JSON.stringify({ layout: profile().layout, buttons: profile().buttons }));
+    store.profiles[name] = JSON.parse(JSON.stringify({ layout: profile().layout, buttons: profile().buttons, theme: profile().theme }));
     activateProfile(name);
     renderProfiles();
   });
@@ -1518,7 +1708,7 @@
   // ---- QR share ----
   $("shareQR").addEventListener("click", () => {
     settingsEl.classList.remove("open");
-    const payload = { name: store.active, layout: profile().layout, buttons: profile().buttons };
+    const payload = { name: store.active, layout: profile().layout, buttons: profile().buttons, theme: profile().theme };
     const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
     $("qimg").src = "/qr?d=" + encodeURIComponent(b64);
     $("qrview").classList.add("open");

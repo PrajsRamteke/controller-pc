@@ -103,6 +103,15 @@ RT as a fire button: most shooters fire on mouse click — nut-js supports
 - **Haptic + sound themes** — distinct vibration patterns per button group
   (triggers feel different from face buttons), Light/Medium/Heavy strength,
   and optional synthesized UI clicks.
+- **Theme skins** — ⚙ settings → Theme: Midnight, DualSense (white), Cyberpunk
+  (neon yellow + glitch), Vaporwave (grid horizon), OLED Stealth (pure black),
+  Retro CRT (phosphor green + scanlines). Saved per profile, so each game can
+  have its own look; themes travel with QR-shared profiles too.
+- **Rumble shockwave** — game rumble doesn't just vibrate the phone: a radial
+  shockwave ripples across the whole pad, scaled to rumble intensity.
+- **Boot-up light sequence** — on connect, a power-on light wave sweeps across
+  the controls left to right and the light bar breathes into your player
+  color, console style. Losing the link plays the reverse sweep in red.
 - **Install as an app (PWA)** — ⚙ settings → **Install app** puts PAD//LINK
   on the phone's home screen with its own icon. Launching it auto-connects:
   the pad remembers every address it has ever reached the server on and
