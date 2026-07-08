@@ -1422,6 +1422,28 @@
   $("qClose").addEventListener("click", () => $("qrview").classList.remove("open"));
 
   // ============ layout editor (per-profile move + resize) ============
+  // factory placement — controls without a profile override land here.
+  // x/y are % of the pad, s is the size multiplier (--sz).
+  const DEFAULT_LAYOUT = {
+    stickL: { x: 27.09, y: 61.45, s: 1.2 },
+    stickR: { x: 57.12, y: 60.62, s: 1.2 },
+    L3: { x: 45.12, y: 76.11 },
+    R3: { x: 50.83, y: 76.55 },
+    A: { x: 81.9,  y: 71.72, s: 1.35 },
+    B: { x: 90.1,  y: 56.63, s: 1.4 },
+    X: { x: 74.68, y: 55.32, s: 1.35 },
+    Y: { x: 82.74, y: 38.32, s: 1.4 },
+    LB: { x: 19.91, y: 18.76, s: 1.7 },
+    RB: { x: 70.8,  y: 21.26, s: 1.75 },
+    LT: { s: 1.8 },
+    RT: { s: 1.55 },
+    VIEW: { x: 44.73, y: 61.52 },
+    MENU: { x: 51.48, y: 62.02 },
+    DPAD_UP:    { x: 10.57, y: 39.4,  s: 1.35 },
+    DPAD_DOWN:  { x: 9.15,  y: 71.96, s: 1.35 },
+    DPAD_LEFT:  { x: 1.7,   y: 53.86, s: 1.35 },
+    DPAD_RIGHT: { x: 17.66, y: 56.05, s: 1.35 },
+  };
   let layout = profile().layout;
   const saveLayout = () => { profile().layout = layout; saveStore(); };
 
@@ -1438,7 +1460,7 @@
   function applyLayout() {
     for (const el of editables) {
       el.setAttribute("style", FACTORY.get(el));
-      const c = layout[el.dataset.cid];
+      const c = layout[el.dataset.cid] || DEFAULT_LAYOUT[el.dataset.cid];
       if (!c) continue;
       if (c.x != null) {
         el.style.left = c.x + "%"; el.style.top = c.y + "%";
@@ -1485,7 +1507,7 @@
     const cid = el.dataset.cid;
     editWho.textContent = NICE[cid] || cid.replace(/_/g, " ");
     sizeSlider.disabled = false;
-    sizeSlider.value = layout[cid]?.s || 1;
+    sizeSlider.value = layout[cid]?.s || DEFAULT_LAYOUT[cid]?.s || 1;
     sizePct.textContent = Math.round(+sizeSlider.value * 100) + "%";
   }
 
@@ -1496,7 +1518,7 @@
     const s = +sizeSlider.value;
     EDIT.sel.style.setProperty("--sz", s);
     sizePct.textContent = Math.round(s * 100) + "%";
-    layout[cid] = { ...layout[cid], s };
+    layout[cid] = { ...DEFAULT_LAYOUT[cid], ...layout[cid], s };
     saveLayout();
   });
 
@@ -1529,7 +1551,7 @@
         el.removeEventListener("pointercancel", up);
         if (moved) {
           const cid = el.dataset.cid;
-          layout[cid] = { ...layout[cid], x: parseFloat(el.style.left), y: parseFloat(el.style.top) };
+          layout[cid] = { ...DEFAULT_LAYOUT[cid], ...layout[cid], x: parseFloat(el.style.left), y: parseFloat(el.style.top) };
           saveLayout();
         }
       };
