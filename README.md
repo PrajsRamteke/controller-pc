@@ -45,9 +45,13 @@ No app install on the phone — scan a QR code and play. Up to 4 players.
 ## 🚀 Quick start (60 seconds)
 
 1. **Download & open** the app for your computer (table above).
-2. **Scan the QR code** shown in the app window with your phone
+2. *Playing browser / cloud games (GeForce NOW, Xbox Cloud)?* Set up the
+   **[browser extension](#%EF%B8%8F-real-gamepad-mode--cloud-gaming--browser-games)
+   first** — it must be installed and allowed **before** you scan.
+   For normal PC games (keyboard + mouse emulation), skip this step.
+3. **Scan the QR code** shown in the app window with your phone
    (phone and computer on the same WiFi).
-3. **Rotate to landscape, tap once** for fullscreen — you're playing. 🎉
+4. **Rotate to landscape, tap once** for fullscreen — you're playing. 🎉
 
 The app window also shows the connection link (click to copy), a Wi-Fi / USB
 endpoint switcher, and live **P1–P4** player slots.
@@ -119,13 +123,30 @@ installers on real macOS/Windows runners — trigger it manually or push a
 Browser games and cloud gaming sites (GeForce NOW, Xbox Cloud Gaming, etc. in
 Chrome) detect controllers through the **Gamepad API**, not the keyboard. The
 included browser extension makes PAD//LINK show up as a real standard-mapping
-controller:
+controller.
 
-1. Chrome → `chrome://extensions` → enable **Developer mode**
-2. **Load unpacked** → select the `extension/` folder in this repo
-3. Start the server and connect your phone
-4. Open https://hardwaretester.com/gamepad — **"PAD//LINK Wireless
-   Controller"** appears, and cloud gaming sites show controller button prompts
+> ⚠️ **Order matters:** set up and allow the extension **before** you scan
+> the QR code with your phone. The extension injects into a page when it
+> loads — tabs opened before the extension was installed won't see the
+> controller until you reload them.
+
+**Step 1 — Install the extension (one time):**
+
+1. Download / clone this repo (the extension lives in the `extension/` folder)
+2. Chrome → `chrome://extensions` → toggle **Developer mode** (top-right)
+3. Click **Load unpacked** → select the `extension/` folder
+4. Allow it to run everywhere: click **Details** on the PAD//LINK card →
+   **Site access → On all sites**. If Chrome shows an "allow" prompt, accept
+   it — without site access the controller never appears in the game tab.
+
+**Step 2 — Connect and play:**
+
+5. Start the desktop app (or `npm start`)
+6. **Now** scan the QR code with your phone
+7. Open (or **reload**, if it was already open) the game tab —
+   test at https://hardwaretester.com/gamepad: **"PAD//LINK Wireless
+   Controller"** appears, and cloud gaming sites show controller button
+   prompts
 
 While a tab with the extension is attached, the server **pauses
 keyboard/mouse mapping** (the phone HUD shows `GAMEPAD` instead of `KEYS`) so
