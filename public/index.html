@@ -253,6 +253,41 @@
     color:var(--faint);text-transform:uppercase;pointer-events:none;
   }
 
+  /* ---- RGB lighting mode — JS cycles --link/--link-rgb (and --a/--b/--x/--y
+     at offset hues), so everything accent-tinted sweeps the rainbow. The rules
+     below add the actual "lit up" look on top of that. ---- */
+  body.rgb{
+    background:
+      radial-gradient(90% 70% at 15% 110%, rgba(var(--link-rgb),.14), transparent 60%),
+      radial-gradient(90% 70% at 85% 110%, rgba(var(--link2-rgb,255,203,46),.10), transparent 60%),
+      var(--bg);
+  }
+  body.rgb .btn{
+    border-color:rgba(var(--link-rgb),.55);
+    box-shadow:0 0 14px rgba(var(--link-rgb),.28), 0 4px 10px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.05);
+  }
+  body.rgb .face .cap{text-shadow:0 0 16px currentColor, 0 0 4px currentColor}
+  body.rgb .dbtn .cap{color:var(--link);text-shadow:0 0 12px currentColor}
+  body.rgb .key{color:var(--dim)}
+  body.rgb .stick{
+    border-color:rgba(var(--link-rgb),.4);
+    box-shadow:0 0 20px rgba(var(--link-rgb),.3), inset 0 6px 18px rgba(0,0,0,.7);
+  }
+  body.rgb .stick .ring{
+    background:conic-gradient(from 0deg,#ff004c,#ff9a00,#eaff00,#00ff66,#00eaff,#4c5bff,#e100ff,#ff004c);
+    opacity:.95;animation:rgbspin 2.4s linear infinite;
+  }
+  @keyframes rgbspin{to{transform:rotate(360deg)}}
+  body.rgb .stick .thumb{border-color:rgba(var(--link-rgb),.6);color:var(--link)}
+  body.rgb #lookpad, body.rgb #touchpad{border-color:rgba(var(--link-rgb),.5)}
+  body.rgb #lookpad{box-shadow:0 0 16px rgba(var(--link-rgb),.25), inset 0 2px 10px rgba(0,0,0,.5)}
+  body.rgb #touchpad .grid, body.rgb #lookpad .grid{
+    opacity:.8;
+    background-image:radial-gradient(circle, rgba(var(--link-rgb),.8) 1px, transparent 1.4px);
+  }
+  body.rgb .tag, body.rgb #touchpad .lbl, body.rgb #lookpad .lbl{color:rgba(var(--link-rgb),.65)}
+  body.rgb .pill{border-color:rgba(var(--link-rgb),.45)}
+
   /* ---- overlay panels (settings / mapping / QR) ---- */
   .overlay{
     position:fixed;inset:0;z-index:50;display:none;
@@ -486,6 +521,14 @@
       <label class="switch"><input type="checkbox" id="sndToggle"><span class="knob"></span></label>
     </div>
     <div class="row">
+      <span>RGB lighting<span class="hint">Full rainbow cycle — buttons, sticks, light bar, everything</span></span>
+      <label class="switch"><input type="checkbox" id="rgbToggle"><span class="knob"></span></label>
+    </div>
+    <div class="row">
+      <span>RGB speed</span>
+      <input type="range" id="rgbSpeed" min="0.3" max="4" step="0.1" value="1">
+    </div>
+    <div class="row">
       <span>Gyro aiming<span class="hint">Tilt the phone to move the camera</span></span>
       <label class="switch"><input type="checkbox" id="gyroToggle"><span class="knob"></span></label>
     </div>
@@ -565,7 +608,7 @@
   const CFG_KEY = "padlink-settings-v1";
   const CFG = Object.assign(
     { vib: localStorage.getItem("padlink-vib") !== "0", sounds: false, haptic: "medium", gyro: false, gyroSens: 1,
-      lockMouse: false, lookMode: "hybrid", lookSens: 1, stickCurve: 1.5 },
+      lockMouse: false, lookMode: "hybrid", lookSens: 1, stickCurve: 1.5, rgb: false, rgbSpeed: 1 },
     JSON.parse(localStorage.getItem(CFG_KEY) || "{}")
   );
   const saveCfg = () => localStorage.setItem(CFG_KEY, JSON.stringify(CFG));
@@ -655,14 +698,63 @@
     ["#8ce06e", "140,224,110"],  // P3 green
     ["#ffb020", "255,176,32"],   // P4 amber
   ];
+  let curSlot = -1; // remembered so RGB mode can hand the accent back on toggle-off
   function setPlayer(i) {
     if (i < 0) { pnumEl.textContent = "FULL"; document.body.classList.add("haslot"); return; }
+    curSlot = i;
     const [c, rgb] = PCOLORS[i] || PCOLORS[0];
-    document.documentElement.style.setProperty("--link", c);
-    document.documentElement.style.setProperty("--link-rgb", rgb);
+    if (!rgbTimer) {
+      document.documentElement.style.setProperty("--link", c);
+      document.documentElement.style.setProperty("--link-rgb", rgb);
+    }
     pnumEl.textContent = "P" + (i + 1);
     document.body.classList.add("haslot");
   }
+
+  // ============ RGB lighting — cycle every accent var through the rainbow ============
+  // The whole UI is themed off --link/--link-rgb (and ABXY off --a/--b/--x/--y),
+  // so spinning those hues lights up the entire pad like a gamer keyboard.
+  let rgbTimer = null;
+  function hueRGB(h) { // hue -> neon rgb triplet (hsl, s=100% l=62%)
+    const f = (n) => {
+      const k = (n + h / 30) % 12;
+      return Math.round(255 * (0.62 - 0.38 * Math.max(-1, Math.min(k - 3, 9 - k, 1))));
+    };
+    return [f(0), f(8), f(4)];
+  }
+  function setHueVar(name, h) {
+    const [r, g, b] = hueRGB(h);
+    const rt = document.documentElement.style;
+    rt.setProperty(name, `rgb(${r},${g},${b})`);
+    rt.setProperty(name + "-rgb", `${r},${g},${b}`);
+  }
+  function rgbTick() {
+    const h = (performance.now() * 0.045 * (CFG.rgbSpeed || 1)) % 360; // ~8s per sweep at 1×
+    setHueVar("--link", h);
+    setHueVar("--link2", (h + 180) % 360);
+    // ABXY chase each other around the color wheel
+    setHueVar("--a", (h + 45) % 360);
+    setHueVar("--b", (h + 135) % 360);
+    setHueVar("--x", (h + 225) % 360);
+    setHueVar("--y", (h + 315) % 360);
+  }
+  function setRGB(on) {
+    document.body.classList.toggle("rgb", on);
+    if (on && !rgbTimer) {
+      rgbTimer = setInterval(rgbTick, 50);
+      rgbTick();
+    } else if (!on && rgbTimer) {
+      clearInterval(rgbTimer);
+      rgbTimer = null;
+      const rt = document.documentElement.style;
+      for (const v of ["--link", "--link2", "--a", "--b", "--x", "--y"]) {
+        rt.removeProperty(v);
+        rt.removeProperty(v + "-rgb");
+      }
+      if (curSlot >= 0) setPlayer(curSlot); // restore this player's accent color
+    }
+  }
+  if (CFG.rgb) setRGB(true);
 
   // remember every address the server was reached on — when the installed
   // app launches from the offline cache (or the Mac's IP changed) we can
@@ -1269,6 +1361,9 @@
   const vibToggle = $("vibToggle"), sndToggle = $("sndToggle"), hapticSel = $("hapticSel");
   const gyroToggle = $("gyroToggle"), gyroSens = $("gyroSens"), lockToggle = $("lockToggle");
   const lookModeSel = $("lookModeSel"), lookSensR = $("lookSensR"), stickCurveR = $("stickCurveR");
+  const rgbToggle = $("rgbToggle"), rgbSpeedR = $("rgbSpeed");
+  rgbToggle.checked = CFG.rgb;
+  rgbSpeedR.value = CFG.rgbSpeed;
   vibToggle.checked = CFG.vib;
   sndToggle.checked = CFG.sounds;
   hapticSel.value = CFG.haptic;
@@ -1296,6 +1391,15 @@
     send({ t: "s", s: "R", x: 0, y: 0 }); // never leave the swapped-out stick deflected
     toast(CFG.lockMouse ? "Lock Mouse on — swipe the pad to aim, hold the rim to keep turning" : "Right stick restored", 2600);
   });
+
+  rgbToggle.addEventListener("change", () => {
+    CFG.rgb = rgbToggle.checked;
+    saveCfg();
+    setRGB(CFG.rgb);
+    fx("ui");
+    toast(CFG.rgb ? "RGB lighting on — taste the rainbow 🌈" : "RGB off — back to player colors", 2200);
+  });
+  rgbSpeedR.addEventListener("input", () => { CFG.rgbSpeed = +rgbSpeedR.value; saveCfg(); });
 
   vibToggle.addEventListener("change", () => { CFG.vib = vibToggle.checked; saveCfg(); buzz(25); });
   sndToggle.addEventListener("change", () => { CFG.sounds = sndToggle.checked; saveCfg(); tone(520); });
