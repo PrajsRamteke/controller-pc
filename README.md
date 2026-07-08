@@ -4,6 +4,39 @@ Your phone becomes an Xbox-style touch controller. A Node server on the Mac
 receives input over WebSocket and injects keyboard + mouse events. No app
 install on the phone — just a URL.
 
+## Desktop app (Mac & Windows)
+
+The easiest way to run PAD//LINK: a small desktop app that starts the server
+and shows the QR code, the connection link (click to copy), an endpoint
+switcher (Wi-Fi / USB tethering) and live P1–P4 player slots.
+
+Build it locally:
+
+```bash
+npm install
+npm run dist:mac       # → dist/PAD LINK-<version>-arm64.dmg
+npm run dist:win       # → dist/PAD LINK Setup <version>.exe (+ portable exe)
+```
+
+Or run it unpackaged during development with `npm run app`.
+
+The GitHub Actions workflow (`.github/workflows/build-apps.yml`) builds both
+installers on real macOS/Windows runners — trigger it manually or push a
+`v*` tag, then grab the artifacts.
+
+Notes:
+
+- **macOS**: grant Accessibility permission to **PAD LINK** (not your
+  terminal) — System Settings → Privacy & Security → Accessibility. The apps
+  are unsigned, so the first launch needs right-click → Open (or
+  `xattr -dr com.apple.quarantine "/Applications/PAD LINK.app"`).
+- **Windows**: SmartScreen will warn on the unsigned installer — choose
+  "More info → Run anyway". Allow the app on private networks if the
+  firewall prompt appears, otherwise the phone can't reach it.
+- The app copies `mapping.json` to its data folder on first launch —
+  "edit mapping" in the window footer opens it (restart the app after
+  editing).
+
 ## Setup (Mac)
 
 ```bash

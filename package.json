@@ -1,10 +1,14 @@
 {
   "name": "phone-gamepad",
   "version": "1.0.0",
-  "description": "Use your phone as a WiFi game controller for your Mac",
-  "main": "server.js",
+  "description": "Use your phone as a WiFi game controller for your Mac or Windows PC",
+  "main": "electron/main.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "app": "electron .",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win",
+    "dist": "electron-builder --mac --win"
   },
   "dependencies": {
     "@nut-tree-fork/nut-js": "^4.2.0",
@@ -12,5 +16,59 @@
     "qrcode": "^1.5.4",
     "qrcode-terminal": "^0.12.0",
     "ws": "^8.17.0"
+  },
+  "devDependencies": {
+    "electron": "^43.1.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "dev.padlink.desktop",
+    "productName": "PAD LINK",
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    },
+    "files": [
+      "electron/**",
+      "server.js",
+      "mapping.json",
+      "public/**",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "public/**",
+      "mapping.json"
+    ],
+    "mac": {
+      "category": "public.app-category.games",
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "dmg"
+        },
+        {
+          "target": "zip"
+        }
+      ]
+    },
+    "dmg": {
+      "title": "PAD LINK"
+    },
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "nsis"
+        },
+        {
+          "target": "portable"
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "PAD LINK"
+    }
   }
 }

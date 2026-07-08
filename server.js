@@ -28,7 +28,24 @@ mouse.config.autoDelayMs = 0;
 mouse.config.mouseSpeed = 10000;
 
 const PORT = process.env.PORT || 8642;
-const mapping = JSON.parse(fs.readFileSync(path.join(__dirname, "mapping.json"), "utf8"));
+// packaged desktop app points this at a user-editable copy in its data dir
+const MAPPING_PATH = process.env.MAPPING_PATH || path.join(__dirname, "mapping.json");
+const mapping = JSON.parse(fs.readFileSync(MAPPING_PATH, "utf8"));
+
+// status feed for the desktop app window (players / mode / reachable URLs)
+const { EventEmitter } = require("events");
+const appEvents = new EventEmitter();
+function statusSnapshot() {
+  return {
+    port: PORT,
+    players: players.map((p) => !!p),
+    mode: gamepadMode() ? "gamepad" : "keys",
+    endpoints: endpointList(),
+  };
+}
+function emitStatus() {
+  try { appEvents.emit("status", statusSnapshot()); } catch {}
+}
 
 // ---- key name -> nut-js Key enum -------------------------------------------
 function resolveKey(name) {
@@ -191,7 +208,7 @@ async function releaseEverything() {
 const app = express();
 app.use(express.static(path.join(__dirname, "public")));
 // controller UI reads this to show which key each button fires
-app.get("/mapping.json", (req, res) => res.sendFile(path.join(__dirname, "mapping.json")));
+app.get("/mapping.json", (req, res) => res.sendFile(MAPPING_PATH));
 
 // QR code for sharing a profile: /qr?d=<base64 profile json>
 // Encodes a link back to this server so scanning it opens the pad and imports.
@@ -233,6 +250,7 @@ wss.on("connection", (ws, req) => {
     console.log(`🕹  Virtual gamepad attached (${consumers.size} tab(s)) — keyboard/mouse mapping paused`);
     releaseEverything().catch(() => {});   // hand off cleanly: no held keys in gamepad mode
     broadcastMode();
+    emitStatus();
     for (let i = 0; i < 4; i++) sendPlayerState(i);
 
     ws.on("message", (raw) => {
@@ -246,6 +264,7 @@ wss.on("connection", (ws, req) => {
     ws.on("close", () => {
       consumers.delete(ws);
       broadcastMode();
+      emitStatus();
       if (consumers.size === 0) console.log("🕹  Virtual gamepad detached — keyboard/mouse mapping resumed");
     });
     return;
@@ -261,6 +280,7 @@ wss.on("connection", (ws, req) => {
     console.log(`🎮 Controller from ${ip} rejected — all 4 player slots taken`);
   } else {
     console.log(`🎮 P${slot + 1} connected from ${ip} (${playerCount()}/4 players)`);
+    emitStatus();
   }
   mouseLoop();
   ws.send(JSON.stringify({ t: "player", i: slot }));
@@ -384,6 +404,7 @@ wss.on("connection", (ws, req) => {
       players[slot] = null;
       sendTo(consumers, { t: "off", i: slot }); // extension reports this pad disconnected
       console.log(`🔌 P${slot + 1} disconnected (${playerCount()}/4 players)`);
+      emitStatus();
       if (slot === 0) {
         await releaseEverything(); // never leave P1's keys stuck down
         buttonKeys = buildButtonKeys(mapping.buttons); // back to mapping.json defaults
@@ -413,6 +434,7 @@ const knownIPs = new Set();
 const isWiredName = (n) => !/wi-?fi|airport/i.test(n || "");
 
 function refreshPortNames(cb) {
+  if (process.platform !== "darwin") { if (cb) cb(); return; } // networksetup is macOS-only
   execFile("networksetup", ["-listallhardwareports"], (err, out) => {
     if (!err && out) {
       const map = {};
@@ -439,13 +461,24 @@ function currentIPs() {
   return out;
 }
 
+// labeled URLs the phone can reach us on — feeds the desktop app window
+function endpointList() {
+  const ips = currentIPs();
+  return Object.entries(ips).map(([ip, iface]) => ({
+    url: `http://${ip}:${PORT}`,
+    label: portNames[iface] || iface,
+    wired: isWiredName(portNames[iface] || iface),
+  }));
+}
+
 function scanInterfaces(announce) {
   const ips = currentIPs();
+  let removed = false;
   for (const ip of [...knownIPs]) {
-    if (!ips[ip]) { knownIPs.delete(ip); delete ipInfo[ip]; }
+    if (!ips[ip]) { knownIPs.delete(ip); delete ipInfo[ip]; removed = true; }
   }
   const added = Object.keys(ips).filter((ip) => !knownIPs.has(ip));
-  if (added.length === 0) return;
+  if (added.length === 0) { if (removed) emitStatus(); return; }
   refreshPortNames(() => {
     for (const ip of added) {
       knownIPs.add(ip);
@@ -461,6 +494,7 @@ function scanInterfaces(announce) {
         }
       }
     }
+    emitStatus();
   });
 }
 setInterval(() => scanInterfaces(true), 3000);
@@ -490,6 +524,11 @@ function setupAdb() {
 setInterval(setupAdb, 5000);
 setupAdb();
 
+server.on("error", (err) => {
+  console.error("Server error:", err.message);
+  appEvents.emit("server-error", err);
+});
+
 server.listen(PORT, () => {
   const ips = lanIPs();
   const url = `http://${ips[0] || "localhost"}:${PORT}`;
@@ -510,9 +549,13 @@ server.listen(PORT, () => {
   console.log("  Hotspot (or Android USB debugging for an automatic tunnel).");
   console.log("  If keys don't fire: grant Accessibility permission");
   console.log("  to your terminal in System Settings → Privacy.\n");
+  emitStatus();
 });
 
 process.on("SIGINT", async () => {
   await releaseEverything();
   process.exit(0);
 });
+
+// consumed by the desktop app (electron/main.js); harmless under plain `node server.js`
+module.exports = { events: appEvents, PORT, statusSnapshot, releaseEverything };
