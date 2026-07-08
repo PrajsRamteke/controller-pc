@@ -103,6 +103,30 @@ RT as a fire button: most shooters fire on mouse click — nut-js supports
 - **Haptic + sound themes** — distinct vibration patterns per button group
   (triggers feel different from face buttons), Light/Medium/Heavy strength,
   and optional synthesized UI clicks.
+- **Install as an app (PWA)** — ⚙ settings → **Install app** puts PAD//LINK
+  on the phone's home screen with its own icon. Launching it auto-connects:
+  the pad remembers every address it has ever reached the server on and
+  cycles through them until one answers, so it survives IP changes and even
+  launches from the offline cache while the server is still starting up.
+
+## Install on the phone (home screen app)
+
+Open the pad once in the browser, then ⚙ settings → **Install app**.
+
+- **Full install** (service worker + offline shell + real install prompt)
+  needs a secure context. The USB adb tunnel gives you one for free —
+  `http://localhost:8642` counts as secure — so install from there for the
+  best result.
+- **Over WiFi** (`http://192.168.x.x`) browsers treat the page as insecure,
+  so the button shows the manual path instead: browser menu →
+  **Add to Home Screen** (iPhone: Share → Add to Home Screen). You still get
+  the icon, fullscreen launch, and auto-connect — just no offline cache.
+  Optional Chrome-on-Android workaround: `chrome://flags` →
+  "Insecure origins treated as secure" → add `http://<mac-ip>:8642`.
+
+Either way, tapping the icon launches straight into the controller and it
+links up on its own — no QR re-scan needed as long as the Mac keeps its IP
+(and if the IP did change, the pad hunts through its remembered addresses).
 
 ## Wired connection (USB — lowest latency)
 

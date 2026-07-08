@@ -314,6 +314,7 @@
     font-size:13px;font-weight:700;letter-spacing:.06em;text-align:center;
   }
   .prow.danger{color:var(--warn);border-color:rgba(255,93,93,.35);background:transparent}
+  .prow[hidden]{display:none}
 
   /* mapping editor rows */
   #mapRows .row{padding:8px 0}
@@ -522,6 +523,7 @@
       </span>
     </div>
 
+    <button class="prow" id="installBtn" hidden>⤓ &nbsp;Install app — auto-connects from your home screen</button>
     <button class="prow" id="editButtons">⌘ &nbsp;Edit button mapping</button>
     <button class="prow" id="shareQR">⇱ &nbsp;Share profile as QR</button>
     <button class="prow" id="editLayout">✎ &nbsp;Edit layout — move &amp; resize any button</button>
@@ -662,17 +664,37 @@
     document.body.classList.add("haslot");
   }
 
+  // remember every address the server was reached on — when the installed
+  // app launches from the offline cache (or the Mac's IP changed) we can
+  // still hunt the server down instead of hammering a dead host
+  const HOSTS_KEY = "padlink-hosts-v1";
+  let knownHosts = [];
+  try { knownHosts = JSON.parse(localStorage.getItem(HOSTS_KEY)) || []; } catch {}
+  const hostCandidates = () => [location.host, ...knownHosts.filter((h) => h !== location.host)];
+  let hostTry = 0; // rotates through candidates while we can't get a link
+
+  function rememberHost(h) {
+    knownHosts = [h, ...knownHosts.filter((x) => x !== h)].slice(0, 6);
+    try { localStorage.setItem(HOSTS_KEY, JSON.stringify(knownHosts)); } catch {}
+  }
+
   function connect() {
+    const hosts = hostCandidates();
+    const host = hosts[hostTry % hosts.length];
     setLink("linking", "LINKING");
-    ws = new WebSocket(`ws://${location.host}`);
+    ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${host}`);
     ws.onopen = () => {
       alive = true;
+      hostTry = 0;
+      rememberHost(host);
       setLink("linked", "LINKED");
       buzz(30);
       sendRemap(); // apply the active profile's button mapping server-side
     };
     ws.onclose = () => {
+      const hadLink = alive;
       alive = false;
+      hostTry = hadLink ? 0 : hostTry + 1; // live drop: retry same host; never linked: try the next one
       setLink("lost", "RETRY");
       latEl.textContent = "— ms";
       document.body.classList.remove("weak", "haslot");
@@ -799,6 +821,38 @@
   }, { capture: true });
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) navigator.wakeLock?.request("screen").catch(() => {});
+  });
+
+  // ============ PWA: install to home screen + offline shell ============
+  // Service workers need a secure context: works on http://localhost (USB adb
+  // tunnel) and https; over plain WiFi http the button falls back to the
+  // browser's "Add to Home Screen" instructions instead.
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+
+  const installBtn = $("installBtn");
+  let installEvt = null;
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault(); // keep it for our own button instead of the mini-infobar
+    installEvt = e;
+    if (!inStandalone) installBtn.hidden = false;
+  });
+  if (!inStandalone) installBtn.hidden = false; // no prompt event? still show manual instructions
+  installBtn.addEventListener("click", async () => {
+    fx("ui");
+    if (installEvt) {
+      installEvt.prompt();
+      const { outcome } = await installEvt.userChoice;
+      installEvt = null;
+      if (outcome === "accepted") installBtn.hidden = true;
+    } else if (isIOS) {
+      toast("Install: tap Share ⬆ then “Add to Home Screen” — launching it auto-connects to this server", 6000);
+    } else {
+      toast("Install: browser menu ⋮ → “Add to Home Screen” (or “Install app”) — launching it auto-connects", 6000);
+    }
+  });
+  window.addEventListener("appinstalled", () => {
+    installBtn.hidden = true;
+    toast("Installed — open PAD//LINK from your home screen and it links up automatically");
   });
 
   // ============ button mapping: defaults + profile override ============
