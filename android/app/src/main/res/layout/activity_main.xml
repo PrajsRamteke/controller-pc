@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="#101018">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/txtStatus"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Starting…"
+            android:textColor="#9fd8ff"
+            android:textSize="15sp" />
+
+        <Button
+            android:id="@+id/btnDiscover"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Make discoverable" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:gravity="center">
+
+        <!-- D-pad -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <Button
+                android:id="@+id/btnUp"
+                android:layout_width="80dp"
+                android:layout_height="64dp"
+                android:text="▲" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnLeft"
+                    android:layout_width="80dp"
+                    android:layout_height="64dp"
+                    android:text="◀" />
+
+                <View
+                    android:layout_width="80dp"
+                    android:layout_height="64dp" />
+
+                <Button
+                    android:id="@+id/btnRight"
+                    android:layout_width="80dp"
+                    android:layout_height="64dp"
+                    android:text="▶" />
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btnDown"
+                android:layout_width="80dp"
+                android:layout_height="64dp"
+                android:text="▼" />
+        </LinearLayout>
+
+        <!-- Select / Start -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <Button
+                android:id="@+id/btnSelect"
+                android:layout_width="110dp"
+                android:layout_height="wrap_content"
+                android:text="Select" />
+
+            <Button
+                android:id="@+id/btnStart"
+                android:layout_width="110dp"
+                android:layout_height="wrap_content"
+                android:text="Start" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnLb"
+                    android:layout_width="55dp"
+                    android:layout_height="wrap_content"
+                    android:text="LB" />
+
+                <Button
+                    android:id="@+id/btnRb"
+                    android:layout_width="55dp"
+                    android:layout_height="wrap_content"
+                    android:text="RB" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- ABXY diamond -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <Button
+                android:id="@+id/btnY"
+                android:layout_width="80dp"
+                android:layout_height="64dp"
+                android:text="Y" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnX"
+                    android:layout_width="80dp"
+                    android:layout_height="64dp"
+                    android:text="X" />
+
+                <View
+                    android:layout_width="80dp"
+                    android:layout_height="64dp" />
+
+                <Button
+                    android:id="@+id/btnB"
+                    android:layout_width="80dp"
+                    android:layout_height="64dp"
+                    android:text="B" />
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btnA"
+                android:layout_width="80dp"
+                android:layout_height="64dp"
+                android:text="A" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>
