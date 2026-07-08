@@ -1,62 +1,120 @@
-# PAD//LINK — phone as WiFi gamepad for your Mac
+<div align="center">
 
-Your phone becomes an Xbox-style touch controller. A Node server on the Mac
-receives input over WebSocket and injects keyboard + mouse events. No app
-install on the phone — just a URL.
+# 🎮 PAD//LINK
 
-## Desktop app (Mac & Windows)
+**Turn your phone into a wireless gamepad for your Mac or Windows PC.**
 
-The easiest way to run PAD//LINK: a small desktop app that starts the server
-and shows the QR code, the connection link (click to copy), an endpoint
-switcher (Wi-Fi / USB tethering) and live P1–P4 player slots.
+No app install on the phone — scan a QR code and play. Up to 4 players.
 
-Build it locally:
+[![Release](https://img.shields.io/github/v/release/PrajsRamteke/controller-pc?label=latest&color=6c5ce7)](https://github.com/PrajsRamteke/controller-pc/releases/latest)
+![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-blue)
+![Phone](https://img.shields.io/badge/phone-Android%20%7C%20iPhone-success)
+![Latency](https://img.shields.io/badge/latency-~10--30ms%20WiFi%20·%20~1--5ms%20USB-orange)
+
+<br>
+
+<img src="screenshots/controller.png" alt="PAD//LINK touch controller — Midnight theme, 13 ms latency over WiFi" width="88%">
+
+<br><br>
+
+<img src="screenshots/rgb-controller.png" alt="PAD//LINK with RGB lighting cycling around the sticks and buttons" width="68%"> <img src="screenshots/mac-app.png" alt="PAD//LINK desktop app — scan the QR, watch P1–P4 fill up" width="19%">
+
+<br>
+
+*Midnight & RGB themes on the phone · the desktop app: scan → play*
+
+<br>
+
+🎬 **[▶ Watch the demo video](screenshots/demo.mp4)**
+
+</div>
+
+---
+
+## ⬇️ Download
+
+| Platform | Download | Notes |
+|----------|----------|-------|
+| 🍎 **macOS** (Apple Silicon) | [**PAD-LINK-1.0.0-mac.dmg**](https://github.com/PrajsRamteke/controller-pc/releases/latest/download/PAD-LINK-1.0.0-mac.dmg) | Drag to Applications |
+| 🪟 **Windows** (installer) | [**PAD-LINK-Setup-1.0.0-win.exe**](https://github.com/PrajsRamteke/controller-pc/releases/latest/download/PAD-LINK-Setup-1.0.0-win.exe) | Recommended |
+| 🪟 **Windows** (portable) | [**PAD-LINK-1.0.0-win-portable.exe**](https://github.com/PrajsRamteke/controller-pc/releases/latest/download/PAD-LINK-1.0.0-win-portable.exe) | No install, just run |
+
+> All builds are also on the [**Releases page**](https://github.com/PrajsRamteke/controller-pc/releases).
+> The apps are unsigned — see [first-launch notes](#%EF%B8%8F-first-launch-unsigned-app-notes) below.
+
+## 🚀 Quick start (60 seconds)
+
+1. **Download & open** the app for your computer (table above).
+2. **Scan the QR code** shown in the app window with your phone
+   (phone and computer on the same WiFi).
+3. **Rotate to landscape, tap once** for fullscreen — you're playing. 🎉
+
+The app window also shows the connection link (click to copy), a Wi-Fi / USB
+endpoint switcher, and live **P1–P4** player slots.
+
+### ⚠️ First launch (unsigned app notes)
+
+- **macOS** — the app is unsigned, so the first launch needs
+  **right-click → Open** (or `xattr -dr com.apple.quarantine "/Applications/PAD LINK.app"`).
+  Then grant Accessibility permission to **PAD LINK**:
+  *System Settings → Privacy & Security → Accessibility* — without this,
+  macOS silently blocks the key presses.
+- **Windows** — SmartScreen will warn on the unsigned installer: choose
+  **More info → Run anyway**. If the firewall prompts, **allow on private
+  networks**, otherwise the phone can't reach the app.
+
+---
+
+## ✨ What you get
+
+- 🎮 **Xbox-style touch controller** — sticks, ABXY, triggers, D-pad, touchpad
+- 👥 **4-player local multiplayer** — each phone gets its own color (P1–P4)
+- 🖱️ **Swipe-to-look camera pad** with edge glide — way better than a fake right stick
+- 📳 **Gyro aiming** — tilt the phone to aim (toggle in ⚙ settings)
+- 🎨 **Theme skins** — Midnight, DualSense, Cyberpunk, Vaporwave, OLED Stealth, Retro CRT
+- 🌈 **RGB lighting** — color-cycling glow around sticks and buttons, speed adjustable in ⚙ settings
+- 💥 **Rumble** — game rumble vibrates the phone *and* ripples a shockwave across the pad
+- 💾 **Profiles per game** — layout + button mapping saved, shareable via QR code
+- ⌨️ **Keyboard passthrough** — type into the PC from your phone (chat, passwords)
+- 📶 **Connection HUD** — live latency sparkline, packet-loss detection, auto-throttle
+- 📲 **Install as an app (PWA)** — home-screen icon that auto-connects on launch
+- 🔌 **USB wired mode** — ~1–5 ms latency over a cable
+
+---
+
+<details>
+<summary><h3>🛠️ Run from source (instead of the desktop app)</h3></summary>
 
 ```bash
+git clone https://github.com/PrajsRamteke/controller-pc.git
+cd controller-pc
 npm install
-npm run dist:mac       # → dist/PAD LINK-<version>-arm64.dmg
-npm run dist:win       # → dist/PAD LINK Setup <version>.exe (+ portable exe)
+npm start
 ```
 
-Or run it unpackaged during development with `npm run app`.
+Scan the QR code printed in the terminal with your phone (same WiFi).
+
+**macOS permission (one time):** the first time a key fires, macOS blocks it
+silently unless your terminal has Accessibility access —
+*System Settings → Privacy & Security → Accessibility* → enable **Terminal**
+(or iTerm / VS Code, whichever runs the server). Restart the server after.
+
+**Build the desktop apps yourself:**
+
+```bash
+npm run app        # run the Electron app unpackaged (dev)
+npm run dist:mac   # → dist/PAD LINK-<version>-arm64.dmg
+npm run dist:win   # → dist/PAD LINK Setup <version>.exe (+ portable exe)
+```
 
 The GitHub Actions workflow (`.github/workflows/build-apps.yml`) builds both
 installers on real macOS/Windows runners — trigger it manually or push a
 `v*` tag, then grab the artifacts.
 
-Notes:
+</details>
 
-- **macOS**: grant Accessibility permission to **PAD LINK** (not your
-  terminal) — System Settings → Privacy & Security → Accessibility. The apps
-  are unsigned, so the first launch needs right-click → Open (or
-  `xattr -dr com.apple.quarantine "/Applications/PAD LINK.app"`).
-- **Windows**: SmartScreen will warn on the unsigned installer — choose
-  "More info → Run anyway". Allow the app on private networks if the
-  firewall prompt appears, otherwise the phone can't reach it.
-- The app copies `mapping.json` to its data folder on first launch —
-  "edit mapping" in the window footer opens it (restart the app after
-  editing).
-
-## Setup (Mac)
-
-```bash
-cd phone-gamepad
-npm install
-npm start
-```
-
-Scan the QR code printed in the terminal with your phone (same WiFi), rotate
-to landscape, tap once to go fullscreen. Done.
-
-## macOS permission (one time, required)
-
-The first time a key fires, macOS blocks it silently unless your terminal has
-Accessibility access:
-
-System Settings → Privacy & Security → Accessibility → enable **Terminal**
-(or iTerm / VS Code — whichever runs the server). Restart the server after.
-
-## Real gamepad mode (cloud gaming / hardwaretester.com)
+<details>
+<summary><h3>🕹️ Real gamepad mode — cloud gaming & browser games</h3></summary>
 
 Browser games and cloud gaming sites (GeForce NOW, Xbox Cloud Gaming, etc. in
 Chrome) detect controllers through the **Gamepad API**, not the keyboard. The
@@ -65,24 +123,28 @@ controller:
 
 1. Chrome → `chrome://extensions` → enable **Developer mode**
 2. **Load unpacked** → select the `extension/` folder in this repo
-3. Start the server (`npm start`) and connect your phone
-4. Open https://hardwaretester.com/gamepad — "PAD//LINK Wireless Controller"
-   appears, and cloud gaming sites show controller button prompts
+3. Start the server and connect your phone
+4. Open https://hardwaretester.com/gamepad — **"PAD//LINK Wireless
+   Controller"** appears, and cloud gaming sites show controller button prompts
 
-While a tab with the extension is attached, the server **pauses keyboard/mouse
-mapping** (the phone HUD shows `GAMEPAD` instead of `KEYS`) so buttons don't
-double-fire as keystrokes. Close the tab and keyboard mode resumes
-automatically. Game rumble is forwarded to the phone as vibration (Android).
+While a tab with the extension is attached, the server **pauses
+keyboard/mouse mapping** (the phone HUD shows `GAMEPAD` instead of `KEYS`) so
+buttons don't double-fire as keystrokes. Close the tab and keyboard mode
+resumes automatically. Game rumble is forwarded to the phone as vibration
+(Android). With multiple phones connected, they show up as gamepads 0–3.
 
-Note: this covers anything running **in the browser**. Native Mac apps (Steam
-games, the GeForce NOW app) can't see it — macOS has no userspace
-virtual-HID API — so for those, keyboard mode below is the answer.
+> **Note:** this covers anything running **in the browser**. Native apps
+> (Steam games, the GeForce NOW app) can't see it — for those, keyboard mode
+> below is the answer.
 
-## How input maps (keyboard mode)
+</details>
+
+<details>
+<summary><h3>⌨️ How input maps (keyboard mode)</h3></summary>
 
 When no extension tab is attached, games see **keyboard + mouse**, which
-nearly every Mac game supports. Defaults (edit `mapping.json`, restart
-server):
+nearly every game supports. Defaults — edit the mapping from the phone
+(⚙ settings) or in `mapping.json`:
 
 | Control      | Sends            |
 |--------------|------------------|
@@ -98,62 +160,40 @@ server):
 | View / Menu  | Tab / Esc        |
 | Touchpad     | Mouse move · tap = click · 2-finger = right-click / scroll |
 
-Right stick can be switched to arrow keys: set `rightStick.mode` to `"keys"`.
-Tune `sensitivity` (mouse speed) and `deadzone` there too.
-
-RT as a fire button: most shooters fire on mouse click — nut-js supports
-`mouse.pressButton`, so wiring RT → left click is a 3-line change in
-`server.js` if you want it (ping me).
-
-## Features
-
-- **Local multiplayer** — up to 4 phones connect at once (P1–P4, each with its
-  own accent color). The extension exposes them as gamepads 0–3. P1's phone
-  drives keyboard/mouse mode and owns the shared touchpad/mouse.
-- **Lock Mouse look pad** — a touch stick is a poor camera control, so the
-  look pad replaces the right stick with **swipe-to-look** (drag = camera,
-  1:1 like a touchpad) plus **edge glide**: park your finger at the rim and
-  the camera keeps turning — no lift-and-reswipe. Style (swipe / hybrid /
-  classic floating stick) and look sensitivity are on the phone in ⚙
-  settings; base multiplier in `mapping.json` → `lookpad.sensitivity`.
+- Right stick can send arrow keys instead: set `rightStick.mode` to `"keys"`.
+- Tune `sensitivity` (mouse speed) and `deadzone` in `mapping.json`.
 - **Stick response curve** — the right stick sends `magnitude^curve` (expo),
   so the middle of the stick is fine-grained for aiming while full deflection
   keeps full speed. Tune it with the "Stick response" slider (1 = linear).
-  Applies in gamepad (extension) mode too.
-- **Gyro aiming** — toggle in ⚙ settings; tilt the phone to move the camera
-  (sent as mouse movement). Sensitivity slider on the phone, base multiplier
-  in `mapping.json` → `gyro.sensitivity`. iOS asks for motion permission.
-- **Profiles** — layout *and* button mapping saved per game, switchable in
-  settings. Edit the button mapping from the phone (no more hand-editing
-  `mapping.json`). Share a profile as a QR code: the other phone scans it,
-  the pad opens and imports it.
-- **Keyboard passthrough** — the ⌨ HUD button opens your phone keyboard and
-  types live into the Mac (chat, lobby names, passwords), with quick keys for
-  Enter/Esc/Tab/arrows.
-- **Connection quality** — live latency sparkline in the HUD, packet-loss
-  detection, and auto-throttling of stick updates on weak WiFi. The touchpad
-  light bar pulses **amber** when the connection is struggling.
-- **Haptic + sound themes** — distinct vibration patterns per button group
-  (triggers feel different from face buttons), Light/Medium/Heavy strength,
-  and optional synthesized UI clicks.
-- **Theme skins** — ⚙ settings → Theme: Midnight, DualSense (white), Cyberpunk
-  (neon yellow + glitch), Vaporwave (grid horizon), OLED Stealth (pure black),
-  Retro CRT (phosphor green + scanlines). Saved per profile, so each game can
-  have its own look; themes travel with QR-shared profiles too.
-- **Rumble shockwave** — game rumble doesn't just vibrate the phone: a radial
-  shockwave ripples across the whole pad, scaled to rumble intensity.
-- **Boot-up light sequence** — on connect, a power-on light wave sweeps across
-  the controls left to right and the light bar breathes into your player
-  color, console style. Losing the link plays the reverse sweep in red.
-- **Install as an app (PWA)** — ⚙ settings → **Install app** puts PAD//LINK
-  on the phone's home screen with its own icon. Launching it auto-connects:
-  the pad remembers every address it has ever reached the server on and
-  cycles through them until one answers, so it survives IP changes and even
-  launches from the offline cache while the server is still starting up.
+- In the desktop app, "edit mapping" in the window footer opens the mapping
+  file (restart the app after editing).
 
-## Install on the phone (home screen app)
+</details>
 
-Open the pad once in the browser, then ⚙ settings → **Install app**.
+<details>
+<summary><h3>🔌 Wired connection (USB — lowest latency)</h3></summary>
+
+The server watches for new network interfaces and prints a fresh QR when a
+cable shows up; the phone HUD shows **USB** instead of WIFI when it's on the
+wire (~1–5 ms instead of 10–30 ms). Pick whichever fits your phone:
+
+- **iPhone**: plug into the Mac → enable **Personal Hotspot** → scan the new
+  QR. Works out of the box.
+- **Android 14+ (macOS 13+)**: plug in → Settings → Hotspot & tethering →
+  **USB tethering** → scan the new QR.
+- **Any Android with USB debugging**: just plug in — if `adb` is installed
+  the server auto-creates a tunnel; open `http://localhost:8642` on the phone.
+
+**Bluetooth fallback** (no WiFi around): pair the phone with the computer and
+enable **Bluetooth tethering** on the phone — same URL trick. Note it's
+*slower* than WiFi (~30–60 ms), so only use it when there's no network.
+
+</details>
+
+<details>
+<summary><h3>📲 Install on the phone (home-screen app)</h3></summary>
+
+Open the pad once in the browser, then **⚙ settings → Install app**.
 
 - **Full install** (service worker + offline shell + real install prompt)
   needs a secure context. The USB adb tunnel gives you one for free —
@@ -164,44 +204,48 @@ Open the pad once in the browser, then ⚙ settings → **Install app**.
   **Add to Home Screen** (iPhone: Share → Add to Home Screen). You still get
   the icon, fullscreen launch, and auto-connect — just no offline cache.
   Optional Chrome-on-Android workaround: `chrome://flags` →
-  "Insecure origins treated as secure" → add `http://<mac-ip>:8642`.
+  "Insecure origins treated as secure" → add `http://<computer-ip>:8642`.
 
 Either way, tapping the icon launches straight into the controller and it
-links up on its own — no QR re-scan needed as long as the Mac keeps its IP
-(and if the IP did change, the pad hunts through its remembered addresses).
+links up on its own — the pad remembers every address it has ever reached the
+server on and cycles through them until one answers, so it survives IP
+changes. No QR re-scan needed.
 
-## Wired connection (USB — lowest latency)
+</details>
 
-The controller runs over any network path, and a USB cable can be one. The
-server watches for new interfaces and prints a fresh QR when a cable shows
-up; the phone HUD shows **USB** instead of WIFI when it's on the wire
-(~1–5 ms instead of 10–30 ms).
+<details>
+<summary><h3>📡 Latency & tips</h3></summary>
 
-Pick whichever fits your phone:
+Expect **~10–30 ms** on a decent WiFi network (**~1–5 ms** wired) — the HUD
+shows live round-trip latency plus a sparkline of the last 30 seconds.
 
-- **iPhone**: plug into the Mac → enable **Personal Hotspot** → scan the new
-  QR the server prints. Works out of the box.
-- **Android 14+ (macOS 13+)**: plug in → Settings → Hotspot & tethering →
-  **USB tethering** → scan the new QR.
-- **Any Android with USB debugging**: just plug in — if `adb` is installed
-  the server auto-creates a tunnel and prints it; open
-  `http://localhost:8642` on the phone.
+- Keep phone and computer on the same **5 GHz** band for best feel.
+- The touchpad light bar pulses **amber** when the connection is struggling;
+  stick updates auto-throttle on weak WiFi.
+- On connect, a console-style boot-up light wave sweeps across the controls
+  and the light bar breathes into your player color. Losing the link plays
+  the reverse sweep in red.
 
-Bluetooth fallback (no WiFi around): pair the phone with the Mac and enable
-**Bluetooth tethering** on the phone — same URL trick, no code needed. Note
-it's *slower* than WiFi (~30–60 ms), so only use it when there's no network.
+</details>
 
-## Latency
+<details>
+<summary><h3>⚠️ Honest limitations</h3></summary>
 
-Expect ~10–30 ms on a decent WiFi network (~1–5 ms wired) — the HUD shows
-live round-trip latency plus a sparkline of the last 30 seconds. On WiFi,
-keep phone and Mac on the same 5 GHz band for best feel.
-
-## Honest limitations
-
-- Gamepad mode only works inside the browser (via the extension). Native Mac
+- Gamepad mode only works **inside the browser** (via the extension). Native
   apps see keyboard emulation — no analog triggers, and native games that
-  *require* a controller won't work.
+  *require* a controller won't work (macOS has no userspace virtual-HID API).
 - iOS Safari doesn't support `navigator.vibrate`, so haptics are Android-only.
 - Fullscreen/orientation lock behaves best in Chrome on Android; on iOS add
-  it to the home screen for a chromeless experience.
+  the pad to the home screen for a chromeless experience.
+- RT as a fire button: most shooters fire on mouse click — wiring
+  RT → left click is a 3-line change in `server.js` if you want it (ping me).
+
+</details>
+
+---
+
+<div align="center">
+
+**Made with ❤️ — scan, rotate, play.**
+
+</div>
