@@ -660,6 +660,7 @@
         <option value="hybrid" selected>Swipe + edge glide</option>
         <option value="swipe">Swipe only</option>
         <option value="stick">Floating stick</option>
+        <option value="absaim">Absolute aim (thumb = crosshair)</option>
       </select>
     </div>
     <div class="row">
@@ -1361,6 +1362,7 @@
       stick: "Look · hold like a stick",
       swipe: "Look · swipe to aim",
       hybrid: "Look · swipe · hold the rim to keep turning",
+      absaim: "Aim · point your thumb where you want the crosshair",
     };
     updateLookLbl = () => { lbl.textContent = LBL[CFG.lookMode] || LBL.hybrid; };
     updateLookLbl();
@@ -1371,6 +1373,22 @@
         if (x !== lx || y !== ly) { send({ t: "s", s: "R", x: +x.toFixed(3), y: +y.toFixed(3) }); lx = x; ly = y; }
         lastSent = now;
       }
+    };
+    // Absolute aim: the thumb's position inside the pad maps 1:1 to the crosshair's
+    // position on screen (position control), unlike swipe/stick which are rate/delta.
+    let lastAim = 0, lax = 2, lay = 2;
+    const sendAim = (nx, ny) => {
+      const now = performance.now();
+      if (now - lastAim <= NET.stickMs && nx === lax && ny === lay) return;
+      lastAim = now;
+      if (nx === lax && ny === lay) return;
+      lax = nx; lay = ny;
+      send({ t: "aim", x: +nx.toFixed(3), y: +ny.toFixed(3) });
+    };
+    const aimAt = (clientX, clientY) => {
+      const nx = Math.max(-1, Math.min(1, ((clientX - rect.left) / rect.width) * 2 - 1));
+      const ny = Math.max(-1, Math.min(1, ((clientY - rect.top) / rect.height) * 2 - 1));
+      sendAim(nx, ny);
     };
     const flushLook = () => {
       rafQ = false;
@@ -1405,6 +1423,7 @@
         place(anchor, ox, oy);
       }
       place(dot, e.clientX, e.clientY);
+      if (CFG.lookMode === "absaim") aimAt(e.clientX, e.clientY);
       lp.classList.add("touching");
       fx("stick");
     });
@@ -1419,6 +1438,11 @@
         place(dot, ox + dx * radius, oy + dy * radius);
         const [sx, sy] = curveVec(dx, dy);
         sendStick(sx, sy);
+        return;
+      }
+      if (CFG.lookMode === "absaim") {
+        place(dot, e.clientX, e.clientY);
+        aimAt(e.clientX, e.clientY);
         return;
       }
       // swipe / hybrid — relative finger deltas
@@ -1450,6 +1474,7 @@
       stopGlide();
       sendStick(0, 0);
       flushLook();
+      if (CFG.lookMode === "absaim") { send({ t: "aimend" }); lax = 2; lay = 2; }
     };
     lp.addEventListener("pointerup", end);
     lp.addEventListener("pointercancel", end);

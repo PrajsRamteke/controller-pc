@@ -21,7 +21,7 @@ const { execFile } = require("child_process");
 const { WebSocketServer } = require("ws");
 const qrcode = require("qrcode-terminal");
 const QRCode = require("qrcode");
-const { keyboard, mouse, Point, Key } = require("@nut-tree-fork/nut-js");
+const { keyboard, mouse, screen, Point, Key } = require("@nut-tree-fork/nut-js");
 
 keyboard.config.autoDelayMs = 0;
 mouse.config.autoDelayMs = 0;
@@ -108,6 +108,18 @@ const touchpad = {
 const gyroSensitivity = mapping.gyro?.sensitivity ?? 3;
 const lookSensitivity = mapping.lookpad?.sensitivity ?? 3.5;
 
+// Absolute aim ("thumb = crosshair" position control): the pad's normalized
+// coords (-1..1) map onto a centered on-screen box, and the cursor is warped to
+// the matching absolute point — so where the thumb sits IS where the aim sits.
+// aimRange = fraction of the screen the pad spans (0.7 = a comfy centre box).
+const aimRange = mapping.aim?.range ?? 0.7;
+const aimAbs = { active: false, nx: 0, ny: 0 };
+let screenW = 0, screenH = 0;
+(async () => {
+  try { screenW = await screen.width(); screenH = await screen.height(); }
+  catch (e) { console.error("screen size unavailable — absolute aim disabled:", e.message); }
+})();
+
 // ---- players (up to 4 phones) & virtual gamepad state ------------------------
 // Standard Gamepad API button indices: https://w3c.github.io/gamepad/#remapping
 const GP_INDEX = {
@@ -170,6 +182,15 @@ async function mouseLoop() {
   while (mouseLoopRunning) {
     let mx = 0, my = 0;
 
+    // Absolute aim wins the tick: warp the cursor straight to the thumb's point.
+    if (!gamepadMode() && aimAbs.active && screenW && screenH) {
+      const tx = Math.round(screenW / 2 + aimAbs.nx * (screenW * aimRange) / 2);
+      const ty = Math.round(screenH / 2 + aimAbs.ny * (screenH * aimRange) / 2);
+      try { await mouse.setPosition(new Point(tx, ty)); } catch (e) { /* transient */ }
+      await new Promise((r) => setTimeout(r, 16));
+      continue;
+    }
+
     const s = sticks.R;
     const mag = Math.hypot(s.x, s.y);
     if (!gamepadMode() && s.mode === "mouse" && mag > s.deadzone) {
@@ -202,6 +223,7 @@ async function releaseEverything() {
     await updateStickKeys(s);
   }
   touchpad.dx = 0; touchpad.dy = 0; touchpad.scrollAcc = 0;
+  aimAbs.active = false;
 }
 
 // ---- server -----------------------------------------------------------------
@@ -347,6 +369,16 @@ wss.on("connection", (ws, req) => {
         if (!isP1()) return;
         touchpad.dx += (+msg.x || 0) * gyroSensitivity;
         touchpad.dy += (+msg.y || 0) * gyroSensitivity;
+        break;
+      case "aim": // absolute aim: { t:"aim", x:nx, y:ny } in -1..1 — thumb position = crosshair position
+        if (!isP1()) return;
+        aimAbs.active = true;
+        aimAbs.nx = Math.max(-1, Math.min(1, +msg.x || 0));
+        aimAbs.ny = Math.max(-1, Math.min(1, +msg.y || 0));
+        break;
+      case "aimend": // thumb lifted — stop holding the absolute aim point
+        if (!isP1()) return;
+        aimAbs.active = false;
         break;
       case "c": // touchpad tap: { t:"c", b:"left"|"right" }
         if (!isP1()) return;
