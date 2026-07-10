@@ -871,8 +871,15 @@
     ["#ffb020", "255,176,32"],   // P4 amber
   ];
   let curSlot = -1; // remembered so RGB mode can hand the accent back on toggle-off
+  let fullToasted = false, keysHintShown = false;
   function setPlayer(i) {
-    if (i < 0) { pnumEl.textContent = "FULL"; document.body.classList.add("haslot"); return; }
+    if (i < 0) {
+      pnumEl.textContent = "FULL";
+      document.body.classList.remove("haslot");
+      if (!fullToasted) { fullToasted = true; toast("All 4 player slots are taken — retrying until one frees", 2600); }
+      return;
+    }
+    const was = curSlot;
     curSlot = i;
     const [c, rgb] = PCOLORS[i] || PCOLORS[0];
     if (!rgbTimer && !THEMES[curTheme]?.accent) { // RGB cycle / theme accent outrank player color
@@ -881,6 +888,15 @@
     }
     pnumEl.textContent = "P" + (i + 1);
     document.body.classList.add("haslot");
+    if (was !== -1 && was !== i) { // promoted mid-session (a lower player left)
+      if (i === 0) {
+        sendRemap(); // the new P1's profile mapping takes over keyboard/mouse
+        toast("You're P1 now — keyboard & mouse are yours", 2600);
+      } else {
+        toast(`You're P${i + 1} now`, 1800);
+      }
+      fx("ui");
+    }
   }
 
   // ============ RGB lighting — cycle every accent var through the rainbow ============
@@ -1047,6 +1063,10 @@
         else if (m.t === "mode") {
           modeEl.textContent = m.g ? "GAMEPAD" : "KEYS";
           modeEl.classList.toggle("gp", !!m.g);
+          if (!m.g && curSlot > 0 && !keysHintShown) {
+            keysHintShown = true;
+            toast("KEYS mode: P1 drives this computer — P2-P4 come alive as gamepads when the browser extension connects", 4200);
+          }
         }
         else if (m.t === "rumble") {
           const mag = Math.min(1, m.m ?? 1);

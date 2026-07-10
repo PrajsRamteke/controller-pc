@@ -251,6 +251,17 @@ app.get("/qr", async (req, res) => {
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
+// ---- liveness: a phone that locks its screen or drops off WiFi never sends a
+// close frame, so its dead socket would ghost a player slot until the TCP
+// timeout (minutes). Ping every 5s and reap sockets that don't answer.
+setInterval(() => {
+  for (const ws of wss.clients) {
+    if (ws.isAlive === false) { try { ws.terminate(); } catch {} continue; }
+    ws.isAlive = false;
+    try { ws.ping(); } catch {}
+  }
+}, 5000);
+
 function gamepadMode() { return consumers.size > 0; }
 function sendTo(set, obj) {
   const msg = JSON.stringify(obj);
@@ -265,7 +276,33 @@ const broadcastMode = () => {
   sendTo(phoneWs, { t: "mode", g: gamepadMode() });
 };
 
+// when a slot frees, shift the remaining players up so P2 becomes the new P1
+// (and inherits keyboard/mouse control) instead of being stuck behind an
+// empty slot forever. Each phone is told its new player number; the phone
+// re-sends its profile remap when it learns it became P1.
+function compactPlayers() {
+  let changed = false;
+  for (let i = 0; i < players.length; i++) {
+    if (players[i]) continue;
+    const j = players.findIndex((p, k) => k > i && p);
+    if (j === -1) break;
+    players[i] = players[j];
+    players[j] = null;
+    players[i].setSlot(i);
+    sendTo(consumers, { t: "off", i: j });
+    sendPlayerState(i);
+    try { players[i].ws.send(JSON.stringify({ t: "player", i })); } catch {}
+    console.log(`🎮 P${j + 1} promoted to P${i + 1}`);
+    changed = true;
+  }
+  if (changed) emitStatus();
+}
+
 wss.on("connection", (ws, req) => {
+  ws.isAlive = true;
+  ws.on("pong", () => { ws.isAlive = true; });
+  ws.on("error", () => {});
+
   // ---- browser extension attaching as a virtual gamepad consumer ----
   if ((req.url || "").includes("role=consumer")) {
     consumers.add(ws);
@@ -295,11 +332,16 @@ wss.on("connection", (ws, req) => {
   // ---- phone controller: assign the lowest free player slot ----
   let slot = players.findIndex((p) => p === null);
   if (slot !== -1) {
-    players[slot] = { ws, axes: [0, 0, 0, 0], buttons: new Array(17).fill(0) };
+    // setSlot keeps this connection's closure in sync when compactPlayers()
+    // promotes it to a lower slot later
+    players[slot] = { ws, axes: [0, 0, 0, 0], buttons: new Array(17).fill(0), setSlot: (n) => { slot = n; } };
   }
   const ip = req.socket.remoteAddress;
   if (slot === -1) {
     console.log(`🎮 Controller from ${ip} rejected — all 4 player slots taken`);
+    // drop the socket shortly so the phone's auto-reconnect keeps retrying
+    // and grabs a slot as soon as one frees, instead of hanging on "FULL"
+    setTimeout(() => { try { ws.close(); } catch {} }, 1500);
   } else {
     console.log(`🎮 P${slot + 1} connected from ${ip} (${playerCount()}/4 players)`);
     emitStatus();
@@ -324,6 +366,7 @@ wss.on("connection", (ws, req) => {
   const isP1 = () => slot === 0;
 
   ws.on("message", async (raw) => {
+    ws.isAlive = true; // any traffic counts as a heartbeat
     let msg;
     try { msg = JSON.parse(raw); } catch { return; }
     const p = slot === -1 ? null : players[slot];
@@ -433,14 +476,17 @@ wss.on("connection", (ws, req) => {
 
   ws.on("close", async () => {
     if (slot !== -1) {
-      players[slot] = null;
-      sendTo(consumers, { t: "off", i: slot }); // extension reports this pad disconnected
-      console.log(`🔌 P${slot + 1} disconnected (${playerCount()}/4 players)`);
+      const wasSlot = slot;
+      players[wasSlot] = null;
+      slot = -1; // this connection is gone — never touch the players array again
+      sendTo(consumers, { t: "off", i: wasSlot }); // extension reports this pad disconnected
+      console.log(`🔌 P${wasSlot + 1} disconnected (${playerCount()}/4 players)`);
       emitStatus();
-      if (slot === 0) {
+      if (wasSlot === 0) {
         await releaseEverything(); // never leave P1's keys stuck down
         buttonKeys = buildButtonKeys(mapping.buttons); // back to mapping.json defaults
       }
+      compactPlayers(); // shift survivors up — P2 takes over as P1, etc.
     }
     if (playerCount() === 0) mouseLoopRunning = false;
   });
