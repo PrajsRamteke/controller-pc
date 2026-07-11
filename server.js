@@ -21,7 +21,7 @@ const { execFile } = require("child_process");
 const { WebSocketServer } = require("ws");
 const qrcode = require("qrcode-terminal");
 const QRCode = require("qrcode");
-const { keyboard, mouse, screen, Point, Key } = require("@nut-tree-fork/nut-js");
+const { keyboard, mouse, screen, Point, Key, Button } = require("@nut-tree-fork/nut-js");
 
 keyboard.config.autoDelayMs = 0;
 mouse.config.autoDelayMs = 0;
@@ -133,6 +133,8 @@ const playerCount = () => players.filter(Boolean).length;
 
 // ---- input actions (keyboard/mouse output — driven by player 1 only) ---------
 const pressedButtons = new Map(); // name -> nut-js Key actually held
+const heldPassKeys = new Set();   // desk-mode keys held via {t:"kd"} (nut-js Key values)
+const heldMouse = new Set();      // desk-mode mouse buttons held via {t:"md"}
 
 async function setButton(name, down) {
   try {
@@ -224,6 +226,14 @@ async function releaseEverything() {
   }
   touchpad.dx = 0; touchpad.dy = 0; touchpad.scrollAcc = 0;
   aimAbs.active = false;
+  for (const k of [...heldPassKeys]) {
+    heldPassKeys.delete(k);
+    try { await keyboard.releaseKey(k); } catch {}
+  }
+  for (const b of [...heldMouse]) {
+    heldMouse.delete(b);
+    try { await mouse.releaseButton(b); } catch {}
+  }
 }
 
 // ---- server -----------------------------------------------------------------
@@ -466,6 +476,38 @@ wss.on("connection", (ws, req) => {
           try { await keyboard.pressKey(k); await keyboard.releaseKey(k); }
           catch (e) { console.error("key error:", e.message); }
         }
+        break;
+      }
+      case "kd": { // desk mode key hold: { t:"kd", k:"LeftShift" } — held until "ku"
+        if (!isP1()) return;
+        const k = resolveKey(msg.k);
+        if (k === null || heldPassKeys.has(k)) return;
+        heldPassKeys.add(k);
+        try { await keyboard.pressKey(k); } catch (e) { console.error("key error:", e.message); }
+        break;
+      }
+      case "ku": { // desk mode key release: { t:"ku", k:"LeftShift" }
+        if (!isP1()) return;
+        const k = resolveKey(msg.k);
+        if (k === null || !heldPassKeys.has(k)) return;
+        heldPassKeys.delete(k);
+        try { await keyboard.releaseKey(k); } catch (e) { console.error("key error:", e.message); }
+        break;
+      }
+      case "md": { // desk mode mouse button hold (drag): { t:"md", b:"left"|"right" }
+        if (!isP1()) return;
+        const b = msg.b === "right" ? Button.RIGHT : Button.LEFT;
+        if (heldMouse.has(b)) return;
+        heldMouse.add(b);
+        try { await mouse.pressButton(b); } catch (e) { console.error("mouse error:", e.message); }
+        break;
+      }
+      case "mu": { // desk mode mouse button release
+        if (!isP1()) return;
+        const b = msg.b === "right" ? Button.RIGHT : Button.LEFT;
+        if (!heldMouse.has(b)) return;
+        heldMouse.delete(b);
+        try { await mouse.releaseButton(b); } catch (e) { console.error("mouse error:", e.message); }
         break;
       }
       case "ping":

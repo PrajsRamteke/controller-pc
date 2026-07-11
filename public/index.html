@@ -198,18 +198,18 @@
   @keyframes lbpulse{0%,100%{opacity:.25}50%{opacity:.95}}
 
   /* trackpad dot texture */
-  #touchpad .grid, #lookpad .grid{
+  #touchpad .grid, #lookpad .grid, #deskPad .grid{
     position:absolute;inset:10px;pointer-events:none;opacity:.5;
     background-image:radial-gradient(circle, var(--faint) 1px, transparent 1.4px);
     background-size:16px 16px;
     -webkit-mask:radial-gradient(closest-side at 50% 50%, #000 60%, transparent 100%);
             mask:radial-gradient(closest-side at 50% 50%, #000 60%, transparent 100%);
   }
-  #touchpad .lbl, #lookpad .lbl{
+  #touchpad .lbl, #lookpad .lbl, #deskPad .lbl{
     position:absolute;left:0;right:0;bottom:8px;text-align:center;pointer-events:none;
     font-size:8px;font-weight:800;letter-spacing:.3em;color:var(--faint);text-transform:uppercase;
   }
-  #touchpad.touching{background:linear-gradient(180deg,var(--pad1-hi),var(--pad2-hi))}
+  #touchpad.touching, #deskPad.touching{background:linear-gradient(180deg,var(--pad1-hi),var(--pad2-hi))}
 
   /* ---- Lock Mouse: mini look-touchpad that replaces the right stick ---- */
   #lookpad{
@@ -558,6 +558,52 @@
   }
   #kbd .khint{font-size:10px;color:var(--dim);letter-spacing:.08em;margin-top:6px;text-transform:uppercase}
 
+  /* ---- Desk Mode: phone becomes a wireless trackpad + full keyboard ---- */
+  #desk{
+    position:absolute;inset:0;z-index:5;display:none;flex-direction:column;gap:8px;
+    padding:52px 12px 10px;touch-action:none;
+  }
+  body.desk #desk{display:flex}
+  body.desk #pad > :not(#hud):not(#toast):not(#desk){display:none!important}
+  body.desk.editing #desk{display:none} /* layout editor edits the gamepad, not desk mode */
+  #deskPad{
+    position:relative;flex:1;min-height:0;border-radius:16px;overflow:hidden;touch-action:none;
+    background:linear-gradient(180deg,var(--pad1),var(--pad2));
+    border:1px solid var(--edge);
+    box-shadow:inset 0 2px 12px rgba(0,0,0,.45);
+  }
+  #deskClicks{display:flex;gap:8px;flex:none;height:42px}
+  #deskClicks .mbtn{
+    flex:1;border-radius:12px;border:1px solid var(--edge);
+    background:linear-gradient(180deg,var(--surface-hi),var(--surface));color:var(--dim);
+    font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+    touch-action:none;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;
+  }
+  #deskLMB{flex:2.2}
+  #deskClicks .mbtn.down{
+    color:var(--link);border-color:var(--link);
+    background:rgba(var(--link-rgb),.14);box-shadow:0 0 14px rgba(var(--link-rgb),.3);
+  }
+  #deskClicks .mbtn.kb{flex:0 0 52px;font-size:17px;letter-spacing:0}
+  #deskClicks .mbtn.kb.on{color:var(--link);border-color:rgba(var(--link-rgb),.55)}
+  #desk.nokb #deskKeys{display:none} /* keyboard hidden → trackpad takes the whole screen */
+  #deskKeys{flex:1.35;min-height:0;display:flex;flex-direction:column;gap:5px}
+  #deskKeys .krow{display:flex;gap:5px;flex:1;min-height:0}
+  #deskKeys .dkey{
+    flex:1;min-width:0;border-radius:8px;border:1px solid var(--edge);
+    background:linear-gradient(180deg,var(--surface-hi),var(--surface));color:var(--ink);
+    display:flex;align-items:center;justify-content:center;padding:0;
+    font-family:inherit;font-size:clamp(10px,2.4vmin,14px);font-weight:700;line-height:1;
+    box-shadow:0 2px 5px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.05);
+    touch-action:none;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;
+    white-space:nowrap;overflow:hidden;
+  }
+  #deskKeys .dkey.down{transform:scale(.93);color:var(--link);border-color:var(--link)}
+  #deskKeys .dkey.latch{
+    color:var(--link);border-color:var(--link);
+    background:rgba(var(--link-rgb),.16);box-shadow:0 0 10px rgba(var(--link-rgb),.35);
+  }
+
   /* ---- layout edit mode ---- */
   #editbar{
     position:fixed;left:50%;bottom:calc(10px + env(safe-area-inset-bottom));transform:translateX(-50%);
@@ -660,6 +706,20 @@
   <!-- Named combo buttons are added here from Settings > Recording. -->
   <div id="macroButtons"></div>
 
+  <!-- Desk Mode: 🖱 in the HUD swaps the gamepad for a trackpad + full keyboard -->
+  <div id="desk">
+    <div id="deskPad">
+      <div class="grid"></div>
+      <div class="lbl">Trackpad · tap = click · 2-finger tap = right · 2-finger drag = scroll</div>
+    </div>
+    <div id="deskClicks">
+      <button class="mbtn" id="deskLMB">Left click · hold to drag</button>
+      <button class="mbtn" id="deskRMB">Right click</button>
+      <button class="mbtn kb" id="deskKbBtn" title="Hide / show keyboard">⌨</button>
+    </div>
+    <div id="deskKeys"></div>
+  </div>
+
   <div class="tag" style="left:5%;bottom:3%">PAD//LINK</div>
 </div>
 
@@ -729,6 +789,13 @@
       </section>
 
       <section class="settings-group">
+        <div class="settings-group-head"><span class="settings-icon">🖱</span><h2>Desk mode<small>Use your phone as a wireless mouse &amp; keyboard</small></h2></div>
+        <div class="setting-list">
+          <div class="row"><span>Keyboard &amp; trackpad<span class="hint">Swap the gamepad for a trackpad, mouse buttons, and a full keyboard</span></span><label class="switch"><input type="checkbox" id="deskToggle"><span class="knob"></span></label></div>
+        </div>
+      </section>
+
+      <section class="settings-group">
         <div class="settings-group-head"><span class="settings-icon">●</span><h2>Combo buttons<small>Record and replay custom button sequences</small></h2></div>
         <div class="setting-list">
           <div class="row"><span>Combo buttons<span class="hint">Show your named buttons on the controller</span></span><label class="switch"><input type="checkbox" id="recordToggle"><span class="knob"></span></label></div>
@@ -789,7 +856,7 @@
   const CFG_KEY = "padlink-settings-v1";
   const CFG = Object.assign(
     { vib: localStorage.getItem("padlink-vib") !== "0", sounds: false, haptic: "medium", gyro: false, gyroSens: 1,
-      lockMouse: false, lookMode: "hybrid", lookSens: 1, stickCurve: 1.5, rgb: false, rgbSpeed: 1, recordButton: true },
+      lockMouse: false, lookMode: "hybrid", lookSens: 1, stickCurve: 1.5, rgb: false, rgbSpeed: 1, recordButton: true, desk: false, deskKb: true },
     JSON.parse(localStorage.getItem(CFG_KEY) || "{}")
   );
   const saveCfg = () => localStorage.setItem(CFG_KEY, JSON.stringify(CFG));
@@ -1290,8 +1357,8 @@
   });
 
   // ============ PS5-style touchpad ============
-  const tp = $("touchpad");
-  {
+  // (shared with Desk Mode's big trackpad — same gestures, different surface)
+  function makeTouchpad(tp) {
     const fingers = new Map();
     let maxFingers = 0, startT = 0, travel = 0;
     let accX = 0, accY = 0, accScroll = 0, rafQueued = false;
@@ -1364,6 +1431,7 @@
     tp.addEventListener("pointerup", lift);
     tp.addEventListener("pointercancel", lift);
   }
+  makeTouchpad($("touchpad"));
 
   // ============ analog sticks ============
   // expo response curve for camera aim: output = magnitude^curve keeps the
@@ -1646,6 +1714,166 @@
     b.addEventListener("click", () => { send({ t: "key", k: b.dataset.key }); fx("ui"); });
   });
 
+  // ============ Desk Mode — phone becomes a wireless trackpad + keyboard ============
+  // 🖱 in the HUD swaps the gamepad for a big trackpad (same gestures as the
+  // PS5 pad), hold-to-drag mouse buttons, and a full keyboard. Modifier keys
+  // are sticky: tap ⇧/⌘/ctrl/alt to latch, they auto-release after the next
+  // normal key — so ⌘ then C sends Cmd+C. fn swaps the number row to F1-F12.
+  makeTouchpad($("deskPad"));
+
+  const deskHeldKeys = new Set();   // normal keys currently held down
+  const deskLatched = new Set();    // sticky modifiers currently latched
+  let deskFn = false;
+  const kbSend = (k, down) => send({ t: down ? "kd" : "ku", k });
+
+  const KB_ROWS = [
+    [ {l:"esc",k:"Escape",w:1.4}, {l:"`",k:"Grave"},
+      ...["1","2","3","4","5","6","7","8","9","0"].map((d,i)=>({l:d,k:d,fl:"F"+(i+1),fk:"F"+(i+1)})),
+      {l:"-",k:"Minus",fl:"F11",fk:"F11"}, {l:"=",k:"Equal",fl:"F12",fk:"F12"},
+      {l:"⌫",k:"Backspace",w:1.7} ],
+    [ {l:"tab",k:"Tab",w:1.6}, ..."qwertyuiop".split("").map(c=>({l:c,k:c.toUpperCase()})),
+      {l:"[",k:"LeftBracket"}, {l:"]",k:"RightBracket"}, {l:"\\",k:"Backslash",w:1.1} ],
+    [ {l:"caps",k:"CapsLock",w:1.9}, ..."asdfghjkl".split("").map(c=>({l:c,k:c.toUpperCase()})),
+      {l:";",k:"Semicolon"}, {l:"'",k:"Quote"}, {l:"↵",k:"Return",w:2} ],
+    [ {l:"⇧",k:"LeftShift",w:2.4,mod:1}, ..."zxcvbnm".split("").map(c=>({l:c,k:c.toUpperCase()})),
+      {l:",",k:"Comma"}, {l:".",k:"Period"}, {l:"/",k:"Slash"},
+      {l:"del",k:"Delete"}, {l:"↑",k:"Up",w:1.1} ],
+    [ {l:"fn",fn:1,w:1.1}, {l:"ctrl",k:"LeftControl",w:1.2,mod:1}, {l:"alt",k:"LeftAlt",w:1.1,mod:1},
+      {l:"⌘",k:"LeftSuper",w:1.4,mod:1}, {l:"space",k:"Space",w:5.6}, {l:"⌘",k:"RightSuper",w:1.2,mod:1},
+      {l:"←",k:"Left",w:1.1}, {l:"↓",k:"Down",w:1.1}, {l:"→",k:"Right",w:1.1} ],
+  ];
+
+  const fnKeys = []; // keys that swap label/output while fn is latched
+  function unlatchDeskMods() {
+    for (const m of deskLatched) kbSend(m, false);
+    deskLatched.clear();
+    $("deskKeys").querySelectorAll(".dkey.mod.latch").forEach((x) => x.classList.remove("latch"));
+  }
+  {
+    const wrap = $("deskKeys");
+    for (const row of KB_ROWS) {
+      const rowEl = document.createElement("div");
+      rowEl.className = "krow";
+      for (const key of row) {
+        const el = document.createElement("button");
+        el.className = "dkey" + (key.mod ? " mod" : "");
+        el.textContent = key.l;
+        el.style.flexGrow = key.w || 1;
+        if (key.fk) fnKeys.push([el, key]);
+        el.addEventListener("pointerdown", (e) => {
+          e.preventDefault();
+          el.setPointerCapture(e.pointerId);
+          if (key.fn) { // fn layer: number row becomes F1-F12
+            deskFn = !deskFn;
+            el.classList.toggle("latch", deskFn);
+            for (const [kel, kdef] of fnKeys) kel.textContent = deskFn ? kdef.fl : kdef.l;
+            buzz(8);
+            return;
+          }
+          if (key.mod) { // sticky modifier: tap to latch, tap again to release
+            if (deskLatched.has(key.k)) {
+              deskLatched.delete(key.k);
+              kbSend(key.k, false);
+              el.classList.remove("latch");
+            } else {
+              deskLatched.add(key.k);
+              kbSend(key.k, true);
+              el.classList.add("latch");
+            }
+            fx("ui");
+            return;
+          }
+          const kn = deskFn && key.fk ? key.fk : key.k;
+          el.dataset.live = kn; // remember what we pressed — fn may flip mid-hold
+          deskHeldKeys.add(kn);
+          kbSend(kn, true);     // held = OS key-repeat for free
+          el.classList.add("down");
+          buzz(8);
+        });
+        const up = () => {
+          if (key.mod || key.fn) return;
+          const kn = el.dataset.live;
+          if (!kn) return;
+          el.dataset.live = "";
+          deskHeldKeys.delete(kn);
+          kbSend(kn, false);
+          el.classList.remove("down");
+          if (deskLatched.size) unlatchDeskMods(); // ⌘+C done — drop the latch
+        };
+        el.addEventListener("pointerup", up);
+        el.addEventListener("pointercancel", up);
+        rowEl.appendChild(el);
+      }
+      wrap.appendChild(rowEl);
+    }
+  }
+
+  // physical-feel mouse buttons: press = button down, release = up → real drags
+  function makeMouseBtn(el, b) {
+    let down = false;
+    el.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      el.setPointerCapture(e.pointerId);
+      down = true;
+      el.classList.add("down");
+      send({ t: "md", b });
+      buzz(10);
+    });
+    const up = () => {
+      if (!down) return;
+      down = false;
+      el.classList.remove("down");
+      send({ t: "mu", b });
+    };
+    el.addEventListener("pointerup", up);
+    el.addEventListener("pointercancel", up);
+  }
+  makeMouseBtn($("deskLMB"), "left");
+  makeMouseBtn($("deskRMB"), "right");
+
+  function releaseDeskHolds() {
+    for (const k of deskHeldKeys) kbSend(k, false);
+    deskHeldKeys.clear();
+    unlatchDeskMods();
+    $("deskKeys").querySelectorAll(".dkey.down").forEach((x) => { x.classList.remove("down"); x.dataset.live = ""; });
+    ["deskLMB", "deskRMB"].forEach((id) => $(id).classList.remove("down"));
+    send({ t: "mu", b: "left" });  // server ignores these if nothing is held
+    send({ t: "mu", b: "right" });
+  }
+
+  function setDesk(on) {
+    CFG.desk = on;
+    saveCfg();
+    document.body.classList.toggle("desk", on);
+    $("deskToggle").checked = on;
+    if (on) {
+      fx("ui");
+      toast(curSlot > 0 ? "Desk mode — heads up: only P1 drives the Mac" : "Desk mode — trackpad + keyboard · turn off in ⚙ settings", 2600);
+    } else {
+      releaseDeskHolds();
+    }
+  }
+  $("deskToggle").addEventListener("change", (e) => {
+    setDesk(e.target.checked);
+    if (e.target.checked) $("settings").classList.remove("open"); // land on the trackpad right away
+  });
+
+  // one-tap keyboard hide — trackpad-only mode for pure mouse use
+  function setDeskKb(on) {
+    CFG.deskKb = on;
+    saveCfg();
+    if (!on) releaseDeskHolds(); // never hide keys that are still held down
+    $("desk").classList.toggle("nokb", !on);
+    $("deskKbBtn").classList.toggle("on", on);
+  }
+  $("deskKbBtn").addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    setDeskKb(!CFG.deskKb);
+    buzz(8);
+  });
+  setDeskKb(CFG.deskKb);
+  if (CFG.desk) setDesk(true);
+
   // ============ release-all safety ============
   const releaseAll = () => {
     send({ t: "s", s: "L", x: 0, y: 0 });
@@ -1654,6 +1882,7 @@
       el.classList.remove("down");
       send({ t: "b", k: el.dataset.k, v: 0 });
     });
+    releaseDeskHolds(); // desk-mode keys, sticky modifiers, held mouse buttons
   };
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) releaseAll();
@@ -2223,6 +2452,7 @@
 
   $("editLayout").addEventListener("click", () => {
     settingsEl.classList.remove("open");
+    if (CFG.desk) setDesk(false); // the layout editor works on the gamepad controls
     EDIT.on = true;
     document.body.classList.add("editing");
     releaseAll();
