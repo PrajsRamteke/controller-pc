@@ -792,6 +792,7 @@
         <div class="settings-group-head"><span class="settings-icon">🖱</span><h2>Desk mode<small>Use your phone as a wireless mouse &amp; keyboard</small></h2></div>
         <div class="setting-list">
           <div class="row"><span>Keyboard &amp; trackpad<span class="hint">Swap the gamepad for a trackpad, mouse buttons, and a full keyboard</span></span><label class="switch"><input type="checkbox" id="deskToggle"><span class="knob"></span></label></div>
+          <div class="row"><span>Scroll speed<span class="hint">Two-finger scrolling on both touchpads</span></span><input type="range" id="scrollSpeedR" min="0.4" max="5" step="0.1" value="1.5"></div>
         </div>
       </section>
 
@@ -856,7 +857,7 @@
   const CFG_KEY = "padlink-settings-v1";
   const CFG = Object.assign(
     { vib: localStorage.getItem("padlink-vib") !== "0", sounds: false, haptic: "medium", gyro: false, gyroSens: 1,
-      lockMouse: false, lookMode: "hybrid", lookSens: 1, stickCurve: 1.5, rgb: false, rgbSpeed: 1, recordButton: true, desk: false, deskKb: true },
+      lockMouse: false, lookMode: "hybrid", lookSens: 1, stickCurve: 1.5, rgb: false, rgbSpeed: 1, recordButton: true, desk: false, deskKb: true, scrollSpeed: 1.5 },
     JSON.parse(localStorage.getItem(CFG_KEY) || "{}")
   );
   const saveCfg = () => localStorage.setItem(CFG_KEY, JSON.stringify(CFG));
@@ -1362,6 +1363,7 @@
     const fingers = new Map();
     let maxFingers = 0, startT = 0, travel = 0;
     let accX = 0, accY = 0, accScroll = 0, rafQueued = false;
+    let flingV = 0, flinging = false; // two-finger momentum: velocity + active glide
 
     const flush = () => {
       rafQueued = false;
@@ -1381,6 +1383,7 @@
       dot.style.top = (e.clientY - r.top) + "px";
       tp.appendChild(dot);
       fingers.set(e.pointerId, { x: e.clientX, y: e.clientY, dot });
+      flingV = 0; flinging = false; // touching down grabs the page — stop any glide
       if (fingers.size === 1) { maxFingers = 1; startT = performance.now(); travel = 0; }
       maxFingers = Math.max(maxFingers, fingers.size);
       tp.classList.add("touching");
@@ -1397,7 +1400,9 @@
       f.dot.style.top = (e.clientY - r.top) + "px";
       travel += Math.hypot(dx, dy);
       if (fingers.size >= 2) {
-        accScroll += dy / fingers.size;
+        const sd = (dy / fingers.size) * (CFG.scrollSpeed || 1);
+        accScroll += sd;
+        flingV = flingV * 0.7 + sd * 0.3; // smoothed velocity feeds the fling
       } else {
         accX += dx; accY += dy;
       }
@@ -1424,6 +1429,18 @@
           if (right) rip.style.borderColor = "rgba(255,203,46,.8)";
           tp.appendChild(rip);
           setTimeout(() => rip.remove(), 500);
+        } else if (maxFingers >= 2 && Math.abs(flingV) > 1.2) {
+          // two-finger swipe released with speed → glide on with momentum
+          flinging = true;
+          const glide = () => {
+            if (!flinging || fingers.size) return;
+            flingV *= 0.94;
+            if (Math.abs(flingV) < 0.35) { flinging = false; return; }
+            accScroll += flingV;
+            queue();
+            requestAnimationFrame(glide);
+          };
+          requestAnimationFrame(glide);
         }
         maxFingers = 0;
       }
@@ -2156,6 +2173,7 @@
   const vibToggle = $("vibToggle"), sndToggle = $("sndToggle"), hapticSel = $("hapticSel");
   const gyroToggle = $("gyroToggle"), gyroSens = $("gyroSens"), lockToggle = $("lockToggle");
   const lookModeSel = $("lookModeSel"), lookSensR = $("lookSensR"), stickCurveR = $("stickCurveR");
+  const scrollSpeedR = $("scrollSpeedR");
   const rgbToggle = $("rgbToggle"), rgbSpeedR = $("rgbSpeed");
   const themeSel = $("themeSel");
   const recordToggle = $("recordToggle");
@@ -2183,6 +2201,7 @@
   lookModeSel.value = CFG.lookMode;
   lookSensR.value = CFG.lookSens;
   stickCurveR.value = CFG.stickCurve;
+  scrollSpeedR.value = CFG.scrollSpeed;
   document.body.classList.toggle("lockmouse", CFG.lockMouse);
   updateComboUi();
 
@@ -2218,6 +2237,7 @@
     send({ t: "s", s: "R", x: 0, y: 0 }); // style switch mid-hold must not strand a turn
   });
   lookSensR.addEventListener("input", () => { CFG.lookSens = +lookSensR.value; saveCfg(); });
+  scrollSpeedR.addEventListener("input", () => { CFG.scrollSpeed = +scrollSpeedR.value; saveCfg(); });
   stickCurveR.addEventListener("input", () => { CFG.stickCurve = +stickCurveR.value; saveCfg(); });
 
   lockToggle.addEventListener("change", () => {

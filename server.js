@@ -100,7 +100,7 @@ const sticks = {
 
 const touchpad = {
   sensitivity: mapping.touchpad?.sensitivity ?? 2.4,
-  scrollSensitivity: mapping.touchpad?.scrollSensitivity ?? 0.15,
+  scrollSensitivity: mapping.touchpad?.scrollSensitivity ?? 0.3,
   naturalScroll: mapping.touchpad?.naturalScroll ?? true,
   dx: 0, dy: 0, scrollAcc: 0,
 };
