@@ -35,9 +35,10 @@ No app install on the phone — scan a QR code and play. Up to 4 players.
 
 | Platform | Download | Notes |
 |----------|----------|-------|
-| 🍎 **macOS** (Apple Silicon) | [**PAD-LINK-1.0.0-mac.dmg**](https://github.com/PrajsRamteke/controller-pc/releases/latest/download/PAD-LINK-1.0.0-mac.dmg) | Drag to Applications |
-| 🪟 **Windows** (installer) | [**PAD-LINK-Setup-1.0.0-win.exe**](https://github.com/PrajsRamteke/controller-pc/releases/latest/download/PAD-LINK-Setup-1.0.0-win.exe) | Recommended |
-| 🪟 **Windows** (portable) | [**PAD-LINK-1.0.0-win-portable.exe**](https://github.com/PrajsRamteke/controller-pc/releases/latest/download/PAD-LINK-1.0.0-win-portable.exe) | No install, just run |
+| 🍎 **macOS** (Apple Silicon) | [**PAD-LINK-1.0.0-mac-arm64.dmg**](https://github.com/PrajsRamteke/controller-pc/releases/latest/download/PAD-LINK-1.0.0-mac-arm64.dmg) | M1/M2/M3/M4 — drag to Applications |
+| 🍎 **macOS** (Intel) | [**PAD-LINK-1.0.0-mac-x64.dmg**](https://github.com/PrajsRamteke/controller-pc/releases/latest/download/PAD-LINK-1.0.0-mac-x64.dmg) | Intel Macs — drag to Applications |
+| 🪟 **Windows** (installer) | [**PAD-LINK-Setup-1.0.0-win-x64.exe**](https://github.com/PrajsRamteke/controller-pc/releases/latest/download/PAD-LINK-Setup-1.0.0-win-x64.exe) | Recommended |
+| 🪟 **Windows** (portable) | [**PAD-LINK-Portable-1.0.0-win-x64.exe**](https://github.com/PrajsRamteke/controller-pc/releases/latest/download/PAD-LINK-Portable-1.0.0-win-x64.exe) | No install, just run |
 
 > All builds are also on the [**Releases page**](https://github.com/PrajsRamteke/controller-pc/releases).
 > The apps are unsigned — see [first-launch notes](#%EF%B8%8F-first-launch-unsigned-app-notes) below.
@@ -107,8 +108,8 @@ silently unless your terminal has Accessibility access —
 
 ```bash
 npm run app        # run the Electron app unpackaged (dev)
-npm run dist:mac   # → dist/PAD LINK-<version>-arm64.dmg
-npm run dist:win   # → dist/PAD LINK Setup <version>.exe (+ portable exe)
+npm run dist:mac   # → dist/PAD-LINK-<version>-mac-{arm64,x64}.dmg (+ .zip)
+npm run dist:win   # → dist/PAD-LINK-Setup-<version>-win-x64.exe (+ portable exe)
 ```
 
 The GitHub Actions workflow (`.github/workflows/build-apps.yml`) builds both
