@@ -50,6 +50,18 @@
   }
   #rotate .ico{font-size:44px;animation:tilt 1.6s ease-in-out infinite}
   @keyframes tilt{0%,100%{transform:rotate(0)}50%{transform:rotate(-90deg)}}
+  #rotateBtn{
+    margin-top:10px;padding:18px 34px;border-radius:16px;
+    font:800 16px/1 inherit;letter-spacing:.08em;
+    color:var(--link);background:rgba(var(--link-rgb),.12);
+    border:1px solid rgba(var(--link-rgb),.5);
+    box-shadow:0 0 24px rgba(var(--link-rgb),.25);
+    display:flex;align-items:center;gap:10px;cursor:pointer;
+    -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+  }
+  #rotateBtn:active{background:rgba(var(--link-rgb),.28);transform:scale(.97)}
+  #rotateBtn .fsico{font-size:22px}
+  #rotateHint{display:none;color:var(--dim);font-size:12px;max-width:280px;line-height:1.5}
   @media (orientation:portrait){ #rotate{display:flex} }
   @media (prefers-reduced-motion:reduce){ #rotate .ico{animation:none} *{animation:none!important;transition:none!important} }
 
@@ -580,6 +592,8 @@
   <div class="ico">📱</div>
   <div style="font-weight:800;letter-spacing:.1em">ROTATE TO LANDSCAPE</div>
   <div style="color:var(--dim);font-size:13px">PAD//LINK works in landscape only</div>
+  <button id="rotateBtn"><span class="fsico">⛶</span> GO FULLSCREEN</button>
+  <div id="rotateHint">Your browser can't rotate automatically — turn your phone sideways. On iPhone: Share → Add to Home Screen for fullscreen.</div>
 </div>
 
 <div id="pad">
@@ -1161,6 +1175,12 @@
     if (!ok && isIOS && !inStandalone) {
       toast("For fullscreen on iPhone: Share → Add to Home Screen, then open PAD//LINK from your home screen");
     }
+  });
+  $("rotateBtn").addEventListener("click", async (e) => {
+    e.stopPropagation();
+    const ok = await goFullscreen();
+    try { await navigator.wakeLock.request("screen"); } catch {}
+    if (!ok) $("rotateHint").style.display = "block";
   });
   let booted = false;
   document.body.addEventListener("pointerdown", async () => {
