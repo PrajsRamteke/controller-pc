@@ -43,6 +43,145 @@ No app install on the phone — scan a QR code and play. Up to 4 players.
 > All builds are also on the [**Releases page**](https://github.com/PrajsRamteke/controller-pc/releases).
 > The apps are unsigned — see [first-launch notes](#%EF%B8%8F-first-launch-unsigned-app-notes) below.
 
+## 📦 Installation & Setup
+
+Two ways to get PAD//LINK running — pick whichever suits you:
+
+| | Path | Best for |
+|---|------|----------|
+| 🤖 | [**Install with AI**](#-option-1--install-with-ai-copy--paste) — copy one prompt, paste it into an AI agent, done | Fastest, zero terminal knowledge needed |
+| 🔧 | [**Install manually**](#-option-2--install-manually) — step-by-step for macOS and Windows | Full control, no AI tools required |
+
+### 🤖 Option 1 — Install with AI (copy & paste)
+
+Using **Claude Code**, **Cursor**, **GitHub Copilot CLI**, **Windsurf**, or any AI coding agent?
+Copy the prompt below, paste it into your agent, and it will detect your OS, download the
+right build, handle the unsigned-app steps, and get you to the QR code — no manual work.
+
+<details open>
+<summary><b>📋 Copy this prompt</b></summary>
+
+```text
+Install and set up PAD//LINK (a phone-as-gamepad app) on this computer from
+https://github.com/PrajsRamteke/controller-pc — do everything for me,
+step by step, and tell me what you're doing as you go.
+
+1. DETECT MY SYSTEM
+   - Detect my OS and CPU architecture (macOS arm64 / macOS x64 / Windows x64).
+
+2. DOWNLOAD THE RIGHT BUILD from the latest GitHub release
+   (https://github.com/PrajsRamteke/controller-pc/releases/latest):
+   - macOS Apple Silicon (M1–M4): PAD-LINK-<version>-mac-arm64.dmg
+   - macOS Intel:                 PAD-LINK-<version>-mac-x64.dmg
+   - Windows:                     PAD-LINK-Setup-<version>-win-x64.exe
+     (or PAD-LINK-Portable-<version>-win-x64.exe if I prefer no installer)
+   - If downloading a prebuilt app fails for any reason, fall back to running
+     from source instead: check that Node.js 18+ is installed (install it if
+     missing), then:
+       git clone https://github.com/PrajsRamteke/controller-pc.git
+       cd controller-pc && npm install && npm start
+
+3. INSTALL IT
+   - macOS: mount the .dmg, copy "PAD LINK.app" to /Applications, then remove
+     the quarantine flag so the unsigned app opens without a warning:
+       xattr -dr com.apple.quarantine "/Applications/PAD LINK.app"
+   - Windows: run the Setup .exe. Warn me that SmartScreen will show a popup —
+     I need to click "More info → Run anyway" (the app is unsigned, not
+     malicious; source is public in the repo above).
+
+4. HANDLE PERMISSIONS (important — the app silently fails without these)
+   - macOS: open System Settings → Privacy & Security → Accessibility and tell
+     me to enable "PAD LINK" (or the terminal app, if running from source).
+     You can open that pane for me with:
+       open "x-apple.systempreference:com.apple.preference.security?Privacy_Accessibility"
+     Without this, macOS blocks all simulated key presses.
+   - Windows: when the firewall prompt appears on first launch, tell me to
+     click "Allow" for PRIVATE networks — otherwise my phone can't connect.
+
+5. LAUNCH & VERIFY
+   - Launch the app (macOS: open "/Applications/PAD LINK.app").
+   - Confirm it's running and showing a QR code in its window.
+
+6. TELL ME THE FINAL STEPS (these are on my phone, you can't do them)
+   - Make sure my phone and this computer are on the SAME WiFi network.
+   - Scan the QR code in the app window with my phone's camera.
+   - Rotate the phone to landscape and tap once for fullscreen — then I'm
+     playing.
+   - Optional: if I want to play browser/cloud games (GeForce NOW, Xbox
+     Cloud), also set up the Chrome extension BEFORE scanning: clone the
+     repo, open chrome://extensions, enable Developer mode, "Load unpacked"
+     → select the extension/ folder, then set Site access → "On all sites".
+
+Ask me before doing anything destructive, and if any step fails, diagnose it
+and try the next best alternative instead of stopping.
+```
+
+</details>
+
+The agent will walk you through anything it can't do itself (like the macOS
+Accessibility toggle and scanning the QR with your phone).
+
+### 🔧 Option 2 — Install manually
+
+<details>
+<summary><b>🍎 macOS</b></summary>
+
+1. **Download** the DMG for your chip from the [table above](#%EF%B8%8F-download)
+   — `mac-arm64` for Apple Silicon (M1–M4), `mac-x64` for Intel.
+2. **Open the DMG** and drag **PAD LINK** into **Applications**.
+3. **First launch** — the app is unsigned, so either **right-click → Open**,
+   or clear the quarantine flag in Terminal:
+   ```bash
+   xattr -dr com.apple.quarantine "/Applications/PAD LINK.app"
+   ```
+4. **Grant Accessibility permission** (required — key presses are silently
+   blocked without it): *System Settings → Privacy & Security →
+   Accessibility* → enable **PAD LINK**.
+5. **Launch the app** — a QR code appears in the window.
+6. On your phone (same WiFi): **scan the QR**, rotate to landscape, tap for
+   fullscreen. Done. 🎉
+
+</details>
+
+<details>
+<summary><b>🪟 Windows</b></summary>
+
+1. **Download** the installer (`PAD-LINK-Setup-…-win-x64.exe`) from the
+   [table above](#%EF%B8%8F-download) — or the **Portable** exe if you don't
+   want to install anything.
+2. **Run it.** SmartScreen will warn about an unsigned app — click
+   **More info → Run anyway**.
+3. **Firewall prompt** on first launch: click **Allow** for **private
+   networks** — otherwise your phone can't reach the app.
+4. **Launch the app** — a QR code appears in the window.
+5. On your phone (same WiFi): **scan the QR**, rotate to landscape, tap for
+   fullscreen. Done. 🎉
+
+</details>
+
+<details>
+<summary><b>🛠️ From source (both platforms)</b></summary>
+
+Needs [Node.js 18+](https://nodejs.org).
+
+```bash
+git clone https://github.com/PrajsRamteke/controller-pc.git
+cd controller-pc
+npm install
+npm start        # QR code prints in the terminal — scan it with your phone
+```
+
+On macOS, grant Accessibility permission to your **terminal app** instead of
+PAD LINK (*System Settings → Privacy & Security → Accessibility*), then
+restart the server. See [Run from source](#%EF%B8%8F-run-from-source-instead-of-the-desktop-app)
+below for building the desktop apps yourself.
+
+</details>
+
+> 🕹️ Playing **browser / cloud games** (GeForce NOW, Xbox Cloud)? Set up the
+> [browser extension](#%EF%B8%8F-real-gamepad-mode--cloud-gaming--browser-games)
+> **before** scanning the QR code.
+
 ## 🚀 Quick start (60 seconds)
 
 1. **Download & open** the app for your computer (table above).
